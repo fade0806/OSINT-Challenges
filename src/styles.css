@@ -589,7 +589,7 @@
   }
 
   .sp-main {
-    padding: 84px 12px 28px;
+    padding: 72px 12px 28px;
   }
 
   .sp-hero {
@@ -1059,20 +1059,22 @@
   }
 
   .sp-navbar-inner {
-    flex-wrap: wrap;
-    padding: 10px 12px;
-    gap: 8px;
+    flex-wrap: nowrap;
+    min-height: 56px;
+    padding: 8px 12px;
+    gap: 10px;
   }
 
-  .sp-navbar-left,
-  .sp-navbar-right {
-    flex: 1 1 100%;
+  .sp-navbar-left {
+    flex: 1 1 auto;
     min-width: 0;
+    gap: 0;
   }
 
   .sp-navbar-right {
+    flex: 0 0 auto;
     justify-content: flex-end;
-    gap: 8px;
+    gap: 6px;
   }
 
   .sp-brand {
@@ -1086,23 +1088,25 @@
   }
 
   .sp-logo {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
   }
 
   .sp-brand-title {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px;
-    letter-spacing: 0.04em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
   }
 
   .sp-nav-box {
-    min-height: 32px;
-    padding: 0 10px;
+    min-height: 30px;
+    padding: 0 11px;
     font-size: 10px;
     letter-spacing: 0.08em;
+    backdrop-filter: none;
   }
 }
 
