@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { UserButton } from "@/lib/auth/gates";
 
 const year = new Date().getFullYear();
 
@@ -31,9 +32,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
               </svg>
               <span className="sp-brand-copy">
                 <span className="sp-brand-title">
-                  OSINT<span>Challenges</span>
+                  SENTINALS<span>PRIME</span>
                 </span>
-                <span className="sp-brand-subtitle">SentinalsPrime // GEOINT</span>
+                <span className="sp-brand-subtitle">Field board // GEOINT</span>
               </span>
             </Link>
             <nav className="sp-primary-nav">
@@ -42,10 +43,14 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </nav>
           </div>
           <div className="sp-navbar-right">
+            <Link to="/admin" className="sp-admin-link">
+              Admin
+            </Link>
             <div className="sp-system-status">
               <span />
               SYS_STATUS: ONLINE
             </div>
+            <UserButton />
           </div>
         </div>
       </header>
@@ -53,10 +58,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <footer className="sp-footer">
         <div className="sp-footer-brand">
           <span className="sp-footer-dot" />
-          <strong>Powered by SentinalsPrime</strong>
+          <strong>Powered by SENTINALSPRIME</strong>
           <span className="sp-footer-dot" />
         </div>
-        <p>OSINT Challenges · spherical imagery for the field board · {year}</p>
+        <p>SENTINALSPRIME · spherical imagery for the field board · {year}</p>
       </footer>
     </>
   );

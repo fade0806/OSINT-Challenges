@@ -90,6 +90,10 @@
   min-width: 0;
 }
 
+.sp-navbar-right {
+  gap: 16px;
+}
+
 .sp-brand {
   gap: 14px;
   text-decoration: none;
@@ -151,6 +155,17 @@
   color: var(--color-red-soft);
 }
 
+.sp-admin-link {
+  color: var(--color-red-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
 .sp-system-status {
   display: flex;
   align-items: center;
@@ -242,18 +257,11 @@
 }
 
 .sp-capture-meta h3 {
-  margin: 0 0 6px;
+  margin: 0;
   color: var(--color-fg-bright);
   font-size: 15px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.sp-capture-meta p {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 11px;
-  letter-spacing: 0.08em;
 }
 
 .sp-note {
@@ -264,42 +272,74 @@
 }
 
 .sp-feature-grid {
-  margin-top: 56px;
+  margin-top: 64px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: 1fr;
+  border: 1px solid color-mix(in srgb, var(--color-red) 38%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-red) 8%, transparent), transparent 42%),
+    color-mix(in srgb, var(--color-panel) 94%, black);
 }
 
 .sp-feature-card {
   position: relative;
   overflow: hidden;
-  padding: 24px;
-  background: color-mix(in srgb, var(--color-panel) 90%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-muted) 25%, transparent);
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  min-height: 210px;
+  padding: 28px 28px 32px;
+  background: transparent;
+  border: 0;
+}
+
+.sp-feature-card + .sp-feature-card {
+  border-top: 1px solid color-mix(in srgb, var(--color-red) 28%, transparent);
+}
+
+.sp-feature-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--color-red);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-red) 70%, transparent);
 }
 
 .sp-feature-card h3 {
-  margin: 0 0 10px;
+  margin: 8px 0 12px;
   color: var(--color-fg-bright);
-  font-size: 14px;
-  letter-spacing: 0.12em;
+  font-size: 20px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
 .sp-feature-card p {
   margin: 0;
-  color: var(--color-muted);
-  font-size: 12px;
-  line-height: 1.55;
+  max-width: 36rem;
+  color: color-mix(in srgb, var(--color-fg) 88%, var(--color-muted));
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .sp-kicker {
   display: block;
-  margin-bottom: 8px;
   color: var(--color-red-soft);
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--color-red) 55%, transparent);
+}
+
+@media (min-width: 900px) {
+  .sp-feature-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sp-feature-card + .sp-feature-card {
+    border-top: 0;
+    border-left: 1px solid color-mix(in srgb, var(--color-red) 28%, transparent);
+  }
 }
 
 .sp-viewer-head {
@@ -317,6 +357,10 @@
   font-size: clamp(1.4rem, 3vw, 2rem);
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.sp-viewer-head .sp-note {
+  margin-top: 0;
 }
 
 .sp-back {
@@ -376,7 +420,7 @@
   padding: 28px 16px 36px;
   border-top: 1px solid color-mix(in srgb, var(--color-red) 28%, transparent);
   background: var(--color-bg);
-  color: color-mix(in srgb, var(--color-red) 55%, transparent);
+  color: color-mix(in srgb, var(--color-red) 70%, transparent);
   text-align: center;
   font-size: 11px;
   letter-spacing: 0.16em;
@@ -402,6 +446,197 @@
   margin: 0;
 }
 
+.sp-empty {
+  margin: 24px 0 8px;
+  text-align: center;
+  color: var(--color-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sp-auth-card,
+.sp-admin-panel {
+  width: min(640px, 100%);
+  margin: 0 auto 18px;
+  padding: 22px;
+  background: color-mix(in srgb, var(--color-panel) 94%, black);
+  border: 1px solid color-mix(in srgb, var(--color-red) 32%, transparent);
+  border-top: 2px solid var(--color-red);
+}
+
+.sp-auth-card p,
+.sp-admin-panel p {
+  margin: 0 0 16px;
+  color: var(--color-fg);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.sp-admin-panel h2,
+.sp-admin-panel h3 {
+  margin: 0 0 16px;
+  color: var(--color-fg-bright);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sp-step-edit {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 16px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--color-red) 22%, transparent);
+}
+
+.sp-form,
+.sp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sp-form {
+  gap: 14px;
+}
+
+.sp-field {
+  color: var(--color-muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sp-field input,
+.sp-field textarea {
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--color-fg-bright);
+  background: var(--color-bg);
+  border: 1px solid color-mix(in srgb, var(--color-red) 35%, transparent);
+  font: inherit;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.sp-field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.sp-button,
+.sp-text-button {
+  min-height: 44px;
+  font: inherit;
+}
+
+.sp-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0 16px;
+  color: var(--color-fg-bright);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-red) 55%, transparent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sp-button:hover:not(:disabled) {
+  border-color: var(--color-red);
+}
+
+.sp-button-solid {
+  background: var(--color-red);
+  border-color: var(--color-red);
+}
+
+.sp-button:disabled {
+  opacity: 0.6;
+}
+
+.sp-text-button {
+  margin-top: 12px;
+  padding: 0;
+  color: var(--color-red-soft);
+  background: none;
+  border: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sp-auth-or {
+  margin: 16px 0;
+  text-align: center;
+  color: var(--color-muted);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.sp-form-error {
+  margin: 0;
+  color: var(--color-red-soft);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.sp-form-error-block {
+  width: min(640px, 100%);
+  margin: 0 auto 16px;
+  text-align: center;
+}
+
+.sp-drop {
+  position: relative;
+  display: grid;
+  min-height: 72px;
+  place-items: center;
+  padding: 12px;
+  color: var(--color-muted);
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px dashed color-mix(in srgb, var(--color-red) 55%, transparent);
+  cursor: pointer;
+}
+
+.sp-drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.sp-admin-preview,
+.sp-admin-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  object-fit: cover;
+  background: var(--color-bg);
+}
+
+.sp-admin-thumb {
+  width: 160px;
+  flex: none;
+}
+
+.sp-admin-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sp-admin-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .pnlm-container {
   background: var(--color-bg) !important;
 }
@@ -425,10 +660,6 @@
 }
 
 @media (max-width: 800px) {
-  .sp-feature-grid {
-    grid-template-columns: 1fr;
-  }
-
   .sp-system-status,
   .sp-brand-subtitle {
     display: none;
@@ -442,6 +673,15 @@
   .sp-pano {
     min-height: 320px;
     height: 62vh;
+  }
+
+  .sp-admin-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sp-admin-thumb {
+    width: 100%;
   }
 }
 

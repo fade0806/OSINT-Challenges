@@ -1,23 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteShell } from "@/components/site-shell";
 import { PanoViewer } from "@/components/pano-viewer";
-import { getChallenge } from "@/lib/challenges";
+import { getCapture } from "@/lib/captures.functions";
 
 export const Route = createFileRoute("/p/$slug")({
+  loader: ({ params }) => getCapture({ data: params.slug }),
+  staleTime: 0,
   component: CapturePage,
-  head: ({ params }) => {
-    const challenge = getChallenge(params.slug);
-    return {
-      meta: [{ title: challenge ? `${challenge.name} | OSINT Challenges` : "Missing capture | OSINT Challenges" }],
-    };
-  },
+  head: ({ loaderData }) => ({
+    meta: [
+      {
+        title: loaderData ? `${loaderData.name} | SENTINALSPRIME` : "Missing capture | SENTINALSPRIME",
+      },
+    ],
+  }),
 });
 
 function CapturePage() {
-  const { slug } = Route.useParams();
-  const challenge = getChallenge(slug);
+  const capture = Route.useLoaderData();
 
-  if (!challenge) {
+  if (!capture) {
     return (
       <SiteShell>
         <div className="sp-missing">
@@ -37,16 +39,21 @@ function CapturePage() {
           <Link to="/" className="sp-back">
             ← Captures
           </Link>
-          <h1>{challenge.name}</h1>
+          <h1>{capture.name}</h1>
         </div>
-        <p className="sp-note">
-          {challenge.category} · {challenge.points} pts · {challenge.width}×{challenge.height}
-        </p>
+        <p className="sp-note">{capture.category}</p>
       </div>
       <div className="sp-pano-frame">
-        <PanoViewer src={challenge.image} label={`${challenge.name} spherical capture`} />
+        <PanoViewer
+          src={
+            capture.updatedAt === "static"
+              ? "/panoramas/basalt-reach.jpg"
+              : `/api/media/${capture.slug}?kind=full&v=${encodeURIComponent(capture.updatedAt)}`
+          }
+          label={`${capture.name} spherical capture`}
+        />
       </div>
-      <p className="sp-brief">{challenge.brief}</p>
+      {capture.brief ? <p className="sp-brief">{capture.brief}</p> : null}
       <p className="sp-note">Answers are pinpointed on the map on the CTF site, not here.</p>
     </SiteShell>
   );

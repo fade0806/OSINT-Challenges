@@ -10,11 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as PSlugRouteImport } from './routes/p/$slug'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiMediaSlugRouteImport } from './routes/api/media/$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PSlugRoute = PSlugRouteImport.update({
@@ -22,31 +36,66 @@ const PSlugRoute = PSlugRouteImport.update({
   path: '/p/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMediaSlugRoute = ApiMediaSlugRouteImport.update({
+  id: '/api/media/$slug',
+  path: '/api/media/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/login': typeof LoginRoute
   '/p/$slug': typeof PSlugRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/$slug': typeof ApiMediaSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/login': typeof LoginRoute
   '/p/$slug': typeof PSlugRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/$slug': typeof ApiMediaSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/login': typeof LoginRoute
   '/p/$slug': typeof PSlugRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/$slug': typeof ApiMediaSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/p/$slug'
+  fullPaths:
+    '/' | '/admin' | '/login' | '/p/$slug' | '/api/auth/$' | '/api/media/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/p/$slug'
-  id: '__root__' | '/' | '/p/$slug'
+  to:
+    '/' | '/admin' | '/login' | '/p/$slug' | '/api/auth/$' | '/api/media/$slug'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/p/$slug'
+    | '/api/auth/$'
+    | '/api/media/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  LoginRoute: typeof LoginRoute
   PSlugRoute: typeof PSlugRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiMediaSlugRoute: typeof ApiMediaSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +107,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/p/$slug': {
       id: '/p/$slug'
       path: '/p/$slug'
@@ -65,12 +128,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media/$slug': {
+      id: '/api/media/$slug'
+      path: '/api/media/$slug'
+      fullPath: '/api/media/$slug'
+      preLoaderRoute: typeof ApiMediaSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  LoginRoute: LoginRoute,
   PSlugRoute: PSlugRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiMediaSlugRoute: ApiMediaSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
