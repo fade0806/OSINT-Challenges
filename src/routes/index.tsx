@@ -13,6 +13,10 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const { captures, briefing } = Route.useLoaderData();
+  const categories = [...new Set(captures.map((capture) => capture.category))];
+  const lead = categories[0]
+    ? captures.find((capture) => capture.category === categories[0])?.slug
+    : undefined;
   const [tab, setTab] = useState("challenges");
 
   useEffect(() => {
@@ -62,23 +66,32 @@ function Home() {
           {captures.length === 0 ? (
             <p className="sp-empty">No challenges on the board yet.</p>
           ) : (
-            <div className="sp-capture-grid">
-              {captures.map((capture) => (
-                <Link key={capture.slug} to="/p/$slug" params={{ slug: capture.slug }} className="sp-capture-card">
-                  <img
-                    className="sp-capture-thumb"
-                    src={`/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <div className="sp-capture-meta">
-                    <span>{capture.category}</span>
-                    <h3>{capture.name}</h3>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            categories.map((category) => (
+              <section key={category} className="sp-board-section">
+                <h2 className="sp-category-title">{category}</h2>
+                <div className="sp-capture-grid">
+                  {captures
+                    .filter((capture) => capture.category === category)
+                    .map((capture) => (
+                      <Link key={capture.slug} to="/p/$slug" params={{ slug: capture.slug }} className="sp-capture-card">
+                        <img
+                          className="sp-capture-thumb"
+                          src={`/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`}
+                          alt=""
+                          width={640}
+                          height={320}
+                          loading={capture.slug === lead ? "eager" : "lazy"}
+                          fetchPriority={capture.slug === lead ? "high" : "low"}
+                          decoding="async"
+                        />
+                        <div className="sp-capture-meta">
+                          <h3>{capture.name}</h3>
+                        </div>
+                      </Link>
+                    ))}
+                </div>
+              </section>
+            ))
           )}
         </div>
         <div

@@ -268,16 +268,16 @@
 }
 
 .sp-category-title {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   color: var(--color-fg-bright);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .sp-board-section + .sp-board-section {
-  margin-top: 16px;
+  margin-top: 28px;
 }
 
 .sp-capture-grid {
@@ -311,24 +311,14 @@
 }
 
 .sp-capture-meta {
-  padding: 8px 12px 10px;
-}
-
-.sp-capture-meta span {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--color-red-soft);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  padding: 12px 14px 14px;
 }
 
 .sp-capture-meta h3 {
   margin: 0;
   color: var(--color-fg-bright);
-  font-size: 13px;
-  letter-spacing: 0.06em;
+  font-size: 14px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -557,15 +547,57 @@
 }
 
 @media (max-width: 800px) {
+  .sp-cinematic-glow,
+  .sp-hex-grid {
+    display: none;
+  }
+
+  .sp-navbar,
+  .sp-stage,
+  .sp-glass-tabs {
+    backdrop-filter: none;
+  }
+
+  .sp-main {
+    padding: 84px 12px 28px;
+  }
+
+  .sp-hero {
+    margin-bottom: 12px;
+    padding-top: 8px;
+  }
+
+  .sp-lede {
+    margin-bottom: 18px;
+  }
+
   .sp-stage {
-    padding: 16px 12px 20px;
-    border-radius: 36px;
+    padding: 14px 12px 18px;
+    border-radius: 28px;
+  }
+
+  .sp-glass-tabs {
+    margin-bottom: 14px;
   }
 
   .sp-glass-tabs button {
     letter-spacing: 0.06em;
     font-size: 11px;
     padding: 0 4px;
+  }
+
+  .sp-board-section + .sp-board-section {
+    margin-top: 22px;
+  }
+
+  .sp-capture-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .sp-feature-card {
+    min-height: 0;
+    padding: 20px 16px 22px;
   }
 }
 

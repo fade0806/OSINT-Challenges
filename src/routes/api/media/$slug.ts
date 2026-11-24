@@ -25,12 +25,18 @@ export const Route = createFileRoute("/api/media/$slug")({
             const board = await remote.remoteBoard();
             const capture = board.captures.find((item) => item.slug === slug);
             if (!capture || capture.visible === false) return missing();
-            if (full && capture.imagePath) {
-              const signed = await remote.remoteReadUrl(capture.imagePath);
+            const assetPath = full ? capture.imagePath : capture.thumbPath;
+            if (assetPath) {
+              const signed = await remote.remoteReadUrl(assetPath);
               if (!signed.startsWith("https://")) return missing();
               return new Response(null, {
                 status: 302,
-                headers: { ...PRIVATE_MEDIA, location: signed },
+                headers: {
+                  location: signed,
+                  "cache-control": "private, max-age=300",
+                  "referrer-policy": "no-referrer",
+                  "x-content-type-options": "nosniff",
+                },
               });
             }
             const media = await remote.remoteImage(slug, full);
