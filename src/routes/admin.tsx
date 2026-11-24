@@ -529,14 +529,14 @@ function CaptureEditor({
   }
 
   async function onDelete() {
-    if (!window.confirm(`Remove ${capture.name} from the board?`)) return;
+    if (!window.confirm(`Delete ${capture.name} from the board?`)) return;
     setBusy(true);
     onError("");
     try {
       await removeCapture({ data: capture.slug });
       await onChanged();
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Could not remove it.");
+      onError(err instanceof Error ? err.message : "Could not delete it.");
       setBusy(false);
     }
   }
@@ -605,7 +605,7 @@ function CaptureEditor({
               }
             }}
           />
-          <span>{progress ? progress : thumb ? "Replacement ready" : "Replace"}</span>
+          <span>{progress ? progress : thumb ? "Replacement ready" : "Replace file"}</span>
         </label>
         <button className="sp-button sp-button-solid" type="submit" disabled={busy}>
           {busy ? progress || "Working…" : "Save"}
@@ -618,15 +618,12 @@ function CaptureEditor({
             void setCaptureShown({ data: { slug: capture.slug, visible: !capture.visible } }).then(() => onChanged())
           }
         >
-          {capture.visible ? "Shown to players" : "Hidden from players"}
+          {capture.visible ? "Hide" : "Unhide"}
         </button>
         <button className="sp-button" type="button" disabled={busy} onClick={() => void onDelete()}>
-          Remove
+          Delete
         </button>
       </div>
-      <p className="sp-storage-note">
-        Remove deletes this challenge and its panorama from storage. Replacing a panorama deletes the previous file too.
-      </p>
     </form>
   );
 }

@@ -889,8 +889,8 @@
   gap: 8px;
 }
 
-.sp-admin-card .sp-field textarea {
-  min-height: 64px;
+.sp-admin-card .sp-admin-split + .sp-field {
+  margin-top: 16px;
 }
 
 .sp-admin-card .sp-admin-actions {
@@ -901,15 +901,19 @@
 }
 
 .sp-admin-card .sp-admin-actions > * {
-  flex: 1 1 140px;
+  flex: 0 0 auto;
+  width: auto;
 }
 
-.sp-storage-note {
-  margin: 8px 0 0;
-  color: var(--color-muted);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: none;
+.sp-admin-card .sp-button,
+.sp-admin-card .sp-drop {
+  min-height: 36px;
+  width: auto;
+  padding: 0 12px;
+}
+
+.sp-admin-card .sp-drop {
+  display: inline-grid;
 }
 
 .pnlm-container {
