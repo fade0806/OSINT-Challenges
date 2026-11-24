@@ -1,0 +1,15 @@
+node_modules
+dist
+.output
+.vercel
+.env
+.env.*
+*.log
+.nitro
+.tanstack
+screenshots
+.grok
+playwright-report
+test-results
+attachments
+artifacts
