@@ -25,6 +25,9 @@ export async function storePanorama(file: File, onProgress?: (percent: number) =
   const inspected = await inspectCapture(file);
   const mode = await uploadMode();
   if (!mode.direct) {
+    if (file.size > 8 * 1024 * 1024) {
+      throw new Error("Unlock the console so this original can upload at full size. The limit is 100 MB.");
+    }
     const image = await readOriginal(file);
     return { ...inspected, image };
   }

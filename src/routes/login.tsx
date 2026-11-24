@@ -5,7 +5,7 @@ import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/clie
 
 export const Route = createFileRoute("/login")({
   component: Login,
-  head: () => ({ meta: [{ title: "Operator sign-in | SENTINALSPRIME" }] }),
+  head: () => ({ meta: [{ title: "Sign in · OSINT | SentinalsPrime" }] }),
 });
 
 function Login() {

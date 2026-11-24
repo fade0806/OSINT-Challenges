@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
-const MAX_PANORAMA_BYTES = 48 * 1024 * 1024;
+const MAX_PANORAMA_BYTES = 100 * 1024 * 1024;
 
 export const Route = createFileRoute("/api/blob")({
   server: {

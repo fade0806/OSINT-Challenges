@@ -71,7 +71,7 @@ function cleanImage(value: unknown, label: string) {
   if (typeof value !== "string") throw new Error(`${label} is required.`);
   const data = value.includes(",") ? (value.split(",").pop() ?? "") : value;
   if (data.length < 32 || data.length > MAX_IMAGE_CHARS) {
-    throw new Error(`${label} is empty or too large. Keep the original under 48 MB.`);
+    throw new Error(`${label} is empty or too large. Keep the original under 100 MB.`);
   }
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw new Error(`${label} is not a valid image.`);
   return data;
@@ -428,7 +428,7 @@ function readCaptureInput(input: CaptureInput): CaptureInput {
     category: cleanText(input?.category, 40, "Category"),
     brief: cleanBrief(input?.brief),
     mime,
-    bytes: cleanCount(input?.bytes, 48 * 1024 * 1024),
+    bytes: cleanCount(input?.bytes, 100 * 1024 * 1024),
     width: cleanCount(input?.width, 32768),
     height: cleanCount(input?.height, 32768),
   };
@@ -517,7 +517,7 @@ export const updateCapture = createServerFn({ method: "POST" })
       name: cleanText(input.name, 80, "Name"),
       category: cleanText(input.category, 40, "Category"),
       brief: cleanBrief(input.brief),
-      bytes: cleanCount(input.bytes, 48 * 1024 * 1024),
+      bytes: cleanCount(input.bytes, 100 * 1024 * 1024),
       width: cleanCount(input.width, 32768),
       height: cleanCount(input.height, 32768),
     };

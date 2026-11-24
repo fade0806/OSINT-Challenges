@@ -10,7 +10,7 @@ export const Route = createFileRoute("/p/$slug")({
   head: ({ loaderData }) => ({
     meta: [
       {
-        title: loaderData ? `${loaderData.name} | SENTINALSPRIME` : "Missing challenge | SENTINALSPRIME",
+        title: loaderData ? `${loaderData.name} · OSINT | SentinalsPrime` : "Missing challenge · OSINT | SentinalsPrime",
       },
     ],
   }),

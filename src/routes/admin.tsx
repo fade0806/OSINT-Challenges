@@ -23,7 +23,7 @@ import { storePanorama } from "@/lib/store-panorama";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
-  head: () => ({ meta: [{ title: "Operator console | SENTINALSPRIME" }] }),
+  head: () => ({ meta: [{ title: "Admin · OSINT | SentinalsPrime" }] }),
 });
 
 type Draft = {
@@ -273,8 +273,8 @@ function AdminPage() {
             onChange={setPanel}
             tabs={[
               { id: "challenges", label: "Challenges" },
-              { id: "briefing", label: "Briefing" },
               { id: "new", label: "New" },
+              { id: "briefing", label: "Briefing" },
             ]}
           />
           <div
@@ -342,7 +342,7 @@ function AdminPage() {
                   ? `${files.length} panoramas. Each original is added. Nothing already on the board is removed.`
                   : draft.bytes
                     ? `Original kept · ${formatSize(draft.bytes)} · ${draft.width}×${draft.height}. Not resized.`
-                    : "Choose one or more equirectangular images, up to 48 MB each"}
+                    : "Choose one or more equirectangular images, up to 100 MB each"}
               </span>
             </label>
             {draft.thumb ? (
@@ -542,7 +542,7 @@ function CaptureEditor({
   }
 
   return (
-    <form className="sp-admin-panel" onSubmit={onSave}>
+    <form className="sp-admin-panel sp-admin-card" onSubmit={onSave}>
       <div className="sp-admin-row">
         <img
           className="sp-admin-thumb"
@@ -559,52 +559,54 @@ function CaptureEditor({
               ? `Replacement original · ${formatSize(bytes)} · ${width}×${height}. Not resized.`
               : capture.bytes
                 ? `Stored original · ${formatSize(capture.bytes)}${capture.width ? ` · ${capture.width}×${capture.height}` : ""}. Not resized.`
-                : "Remove this one and upload the original file again if the sphere looks soft."}
+                : "Upload the original again if the sphere looks soft."}
           </p>
         </div>
       </div>
-      <label className="sp-field">
-        Name
-        <input required maxLength={80} value={name} onChange={(event) => setName(event.target.value)} />
-      </label>
-      <label className="sp-field">
-        Category
-        <input required maxLength={40} value={category} onChange={(event) => setCategory(event.target.value)} />
-      </label>
+      <div className="sp-admin-split">
+        <label className="sp-field">
+          Name
+          <input required maxLength={80} value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
+        <label className="sp-field">
+          Category
+          <input required maxLength={40} value={category} onChange={(event) => setCategory(event.target.value)} />
+        </label>
+      </div>
       <label className="sp-field">
         Description
-        <textarea maxLength={2000} rows={3} value={brief} onChange={(event) => setBrief(event.target.value)} />
-      </label>
-      <label className="sp-drop">
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={async (event) => {
-            const file = event.target.files?.[0];
-            if (!file) return;
-            setBusy(true);
-            setProgress(file.name);
-            try {
-              const prepared = await storePanorama(file, (percent) => setProgress(`${file.name} · ${percent}%`));
-              setImage(prepared.image ?? "");
-              setThumb(prepared.thumb);
-              setImagePath(prepared.imagePath ?? "");
-              setThumbPath(prepared.thumbPath ?? "");
-              setMime(prepared.mime);
-              setBytes(prepared.bytes);
-              setWidth(prepared.width);
-              setHeight(prepared.height);
-            } catch (err) {
-              onError(err instanceof Error ? err.message : "Could not read that image.");
-            } finally {
-              setBusy(false);
-              setProgress("");
-            }
-          }}
-        />
-        <span>{progress ? progress : thumb ? "Replacement ready. Save to swap it in." : "Replace the panorama"}</span>
+        <textarea maxLength={2000} rows={2} value={brief} onChange={(event) => setBrief(event.target.value)} />
       </label>
       <div className="sp-admin-actions">
+        <label className="sp-drop">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              setBusy(true);
+              setProgress(file.name);
+              try {
+                const prepared = await storePanorama(file, (percent) => setProgress(`${file.name} · ${percent}%`));
+                setImage(prepared.image ?? "");
+                setThumb(prepared.thumb);
+                setImagePath(prepared.imagePath ?? "");
+                setThumbPath(prepared.thumbPath ?? "");
+                setMime(prepared.mime);
+                setBytes(prepared.bytes);
+                setWidth(prepared.width);
+                setHeight(prepared.height);
+              } catch (err) {
+                onError(err instanceof Error ? err.message : "Could not read that image.");
+              } finally {
+                setBusy(false);
+                setProgress("");
+              }
+            }}
+          />
+          <span>{progress ? progress : thumb ? "Replacement ready" : "Replace"}</span>
+        </label>
         <button className="sp-button sp-button-solid" type="submit" disabled={busy}>
           {busy ? progress || "Working…" : "Save"}
         </button>

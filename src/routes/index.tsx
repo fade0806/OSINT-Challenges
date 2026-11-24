@@ -8,12 +8,11 @@ export const Route = createFileRoute("/")({
   loader: () => getBoard(),
   staleTime: 0,
   component: Home,
-  head: () => ({ meta: [{ title: "SENTINALSPRIME" }] }),
+  head: () => ({ meta: [{ title: "OSINT | SentinalsPrime" }] }),
 });
 
 function Home() {
   const { captures, briefing } = Route.useLoaderData();
-  const categories = [...new Set(captures.map((capture) => capture.category))];
   const [tab, setTab] = useState("challenges");
 
   useEffect(() => {
@@ -39,7 +38,7 @@ function Home() {
           <span />
         </div>
         <h1 className="sp-page-title">
-          SENTINALS<em>PRIME</em>
+          SENTINALS<em>PRIME</em> CTF
         </h1>
         <p className="sp-lede">{briefing.lede}</p>
       </section>
@@ -63,29 +62,23 @@ function Home() {
           {captures.length === 0 ? (
             <p className="sp-empty">No challenges on the board yet.</p>
           ) : (
-            categories.map((category) => (
-              <section key={category} className="sp-board-section">
-                <h2 className="sp-category-title">{category}</h2>
-                <div className="sp-capture-grid">
-                  {captures
-                    .filter((capture) => capture.category === category)
-                    .map((capture) => (
-                      <Link key={capture.slug} to="/p/$slug" params={{ slug: capture.slug }} className="sp-capture-card">
-                        <img
-                          className="sp-capture-thumb"
-                          src={`/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                        />
-                        <div className="sp-capture-meta">
-                          <h3>{capture.name}</h3>
-                        </div>
-                      </Link>
-                    ))}
-                </div>
-              </section>
-            ))
+            <div className="sp-capture-grid">
+              {captures.map((capture) => (
+                <Link key={capture.slug} to="/p/$slug" params={{ slug: capture.slug }} className="sp-capture-card">
+                  <img
+                    className="sp-capture-thumb"
+                    src={`/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="sp-capture-meta">
+                    <span>{capture.category}</span>
+                    <h3>{capture.name}</h3>
+                  </div>
+                </Link>
+              ))}
+            </div>
           )}
         </div>
         <div

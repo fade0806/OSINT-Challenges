@@ -34,7 +34,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 <span className="sp-brand-title">
                   SENTINALS<span>PRIME</span>
                 </span>
-                <span className="sp-brand-subtitle">Field board // GEOINT</span>
+                <span className="sp-brand-subtitle">CTF</span>
               </span>
             </Link>
           </div>
@@ -54,10 +54,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <footer className="sp-footer">
         <div className="sp-footer-brand">
           <span className="sp-footer-dot" />
-          <strong>Powered by SENTINALSPRIME</strong>
+          <strong>Powered by SentinalsPrime CTF</strong>
           <span className="sp-footer-dot" />
         </div>
-        <p>SENTINALSPRIME · spherical imagery for the field board · {year}</p>
+        <p>OSINT | SentinalsPrime · {year}</p>
       </footer>
     </>
   );

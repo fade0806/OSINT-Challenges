@@ -1,5 +1,5 @@
 const ACCEPT = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-export const MAX_PANORAMA_BYTES = 48 * 1024 * 1024;
+export const MAX_PANORAMA_BYTES = 100 * 1024 * 1024;
 
 function drawJpeg(bitmap: ImageBitmap, maxWidth: number, quality: number) {
   const scale = Math.min(1, maxWidth / bitmap.width);
@@ -38,7 +38,7 @@ export async function inspectCapture(file: File) {
     throw new Error("Use a JPEG, PNG, or WebP panorama.");
   }
   if (file.size > MAX_PANORAMA_BYTES) {
-    throw new Error("That file is over 48 MB.");
+    throw new Error("That file is over 100 MB.");
   }
   const bitmap = await createImageBitmap(file);
   try {
