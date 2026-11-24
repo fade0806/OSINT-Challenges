@@ -723,6 +723,17 @@
   border-top: 2px solid var(--color-red);
 }
 
+.sp-auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sp-auth-card .sp-button {
+  margin-top: 2px;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
 .sp-auth-card p,
 .sp-admin-panel p {
   margin: 0 0 16px;
