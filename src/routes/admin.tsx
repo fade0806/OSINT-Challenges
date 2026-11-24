@@ -11,6 +11,7 @@ import {
   publishCapture,
   removeCapture,
   saveBriefing,
+  setCaptureShown,
   unlockBoard,
   updateCapture,
   type Briefing,
@@ -29,6 +30,7 @@ type Draft = {
   brief: string;
   image: string;
   thumb: string;
+  mime: string;
   wide: boolean;
 };
 
@@ -38,6 +40,7 @@ const emptyDraft = (): Draft => ({
   brief: "",
   image: "",
   thumb: "",
+  mime: "image/jpeg",
   wide: true,
 });
 
@@ -54,6 +57,7 @@ function AdminPage() {
   const [error, setError] = useState("");
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [busy, setBusy] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState("");
 
   async function refresh() {
@@ -169,17 +173,39 @@ function AdminPage() {
 
   async function onPublish(event: FormEvent) {
     event.preventDefault();
-    if (!draft.image) {
-      setError("Add a panorama first.");
+    if (!files.length) {
+      setError("Add at least one panorama.");
+      return;
+    }
+    if (files.length === 1 && !draft.name.trim()) {
+      setError("Name the capture, or add several files and each filename is used.");
       return;
     }
     setError("");
     setNotice("");
     setBusy(true);
     try {
-      const created = await publishCapture({ data: draft });
+      let last = "";
+      for (const file of files) {
+        const prepared = await prepareCapture(file);
+        const fromFile = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim().slice(0, 80);
+        const name = files.length === 1 ? draft.name.trim() : fromFile || draft.name.trim();
+        if (!name) throw new Error("Each file needs a name.");
+        const created = await publishCapture({
+          data: {
+            name,
+            category: draft.category,
+            brief: draft.brief,
+            image: prepared.image,
+            thumb: prepared.thumb,
+            mime: prepared.mime,
+          },
+        });
+        last = created.slug;
+      }
       setDraft(emptyDraft());
-      setNotice(created.slug);
+      setFiles([]);
+      setNotice(last);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not publish.");
@@ -226,10 +252,10 @@ function AdminPage() {
             <label className="sp-field">
               Name
               <input
-                required
                 maxLength={80}
                 value={draft.name}
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                placeholder={files.length > 1 ? "Each file uses its own name" : "Capture name"}
               />
             </label>
             <label className="sp-field">
@@ -254,12 +280,22 @@ function AdminPage() {
             <label className="sp-drop">
               <input
                 type="file"
+                multiple
                 accept="image/jpeg,image/png,image/webp"
-                onChange={(event) =>
-                  void onFile(event.target.files?.[0], (next) => setDraft((current) => ({ ...current, ...next })))
-                }
+                onChange={(event) => {
+                  const next = [...(event.target.files ?? [])];
+                  setFiles(next);
+                  const first = next[0];
+                  if (first) void onFile(first, (prepared) => setDraft((current) => ({ ...current, ...prepared })));
+                }}
               />
-              <span>{draft.thumb ? "Panorama ready. Choose another file to replace it." : "Choose an equirectangular image"}</span>
+              <span>
+                {files.length > 1
+                  ? `${files.length} panoramas ready. Publishing adds them. Nothing already on the board is removed.`
+                  : draft.thumb
+                    ? "Panorama ready at its original size. Choose more files to add them too."
+                    : "Choose one or more equirectangular images"}
+              </span>
             </label>
             {draft.thumb ? (
               <img className="sp-admin-preview" alt="" src={`data:image/jpeg;base64,${draft.thumb}`} />
@@ -282,14 +318,28 @@ function AdminPage() {
           <section className="sp-admin-list">
             <h2 className="sp-category-title">On the board</h2>
             {board.captures.length === 0 ? <p className="sp-note">No captures yet.</p> : null}
-            {board.captures.map((capture) => (
-              <CaptureEditor
-                key={capture.slug}
-                capture={capture}
-                onChanged={refresh}
-                onError={setError}
-              />
-            ))}
+            {board.captures.map((capture) =>
+              capture.sample ? (
+                <form key={capture.slug} className="sp-admin-panel">
+                  <h3>{capture.name}</h3>
+                  <p>This starter sphere stays on the board until you hide it. New uploads are added beside it.</p>
+                  <button
+                    className="sp-button"
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void setCaptureShown({
+                        data: { slug: capture.slug, visible: !capture.visible, sample: true },
+                      }).then(() => refresh())
+                    }
+                  >
+                    {capture.visible ? "Shown to players — hide" : "Hidden — show to players"}
+                  </button>
+                </form>
+              ) : (
+                <CaptureEditor key={capture.slug} capture={capture} onChanged={refresh} onError={setError} />
+              ),
+            )}
           </section>
         </>
       )}
@@ -401,6 +451,7 @@ function CaptureEditor({
   const [brief, setBrief] = useState(capture.brief);
   const [image, setImage] = useState("");
   const [thumb, setThumb] = useState("");
+  const [mime, setMime] = useState("image/jpeg");
   const [busy, setBusy] = useState(false);
 
   async function onSave(event: FormEvent) {
@@ -414,7 +465,7 @@ function CaptureEditor({
           name,
           category,
           brief,
-          ...(image && thumb ? { image, thumb } : {}),
+          ...(image && thumb ? { image, thumb, mime } : {}),
         },
       });
       setImage("");
@@ -479,6 +530,7 @@ function CaptureEditor({
               const prepared = await prepareCapture(file);
               setImage(prepared.image);
               setThumb(prepared.thumb);
+              setMime(prepared.mime);
             } catch (err) {
               onError(err instanceof Error ? err.message : "Could not read that image.");
             } finally {
@@ -491,6 +543,16 @@ function CaptureEditor({
       <div className="sp-admin-actions">
         <button className="sp-button sp-button-solid" type="submit" disabled={busy}>
           {busy ? "Working…" : "Save"}
+        </button>
+        <button
+          className="sp-button"
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            void setCaptureShown({ data: { slug: capture.slug, visible: !capture.visible } }).then(() => onChanged())
+          }
+        >
+          {capture.visible ? "Shown to players" : "Hidden from players"}
         </button>
         <button className="sp-button" type="button" disabled={busy} onClick={() => void onDelete()}>
           Remove

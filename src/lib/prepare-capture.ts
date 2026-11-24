@@ -16,21 +16,38 @@ function drawJpeg(bitmap: ImageBitmap, maxWidth: number, quality: number) {
   return data;
 }
 
+function readOriginal(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const data = result.split(",")[1];
+      if (!data) reject(new Error("Could not read that image."));
+      else resolve(data);
+    };
+    reader.onerror = () => reject(new Error("Could not read that image."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function prepareCapture(file: File) {
-  if (!ACCEPT.includes(file.type)) {
+  if (!ACCEPT.includes(file.type) && !file.type.startsWith("image/")) {
     throw new Error("Use a JPEG, PNG, or WebP panorama.");
   }
-  if (file.size > 20 * 1024 * 1024) {
-    throw new Error("That file is over 20 MB.");
+  if (file.size > 25 * 1024 * 1024) {
+    throw new Error("That file is over 25 MB.");
   }
   const bitmap = await createImageBitmap(file);
   try {
     const ratio = bitmap.width / bitmap.height;
-    const image = drawJpeg(bitmap, 4096, 0.82);
-    const thumb = drawJpeg(bitmap, 960, 0.72);
+    const image = await readOriginal(file);
+    const thumb = drawJpeg(bitmap, 960, 0.82);
     return {
       image,
       thumb,
+      mime: file.type || "image/jpeg",
+      width: bitmap.width,
+      height: bitmap.height,
       wide: ratio > 1.7 && ratio < 2.3,
     };
   } finally {

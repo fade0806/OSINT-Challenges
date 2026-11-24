@@ -15,8 +15,21 @@ function Home() {
 
   return (
     <SiteShell>
-      <h1 className="sp-page-title">SENTINALSPRIME</h1>
-      <p className="sp-lede">{briefing.lede}</p>
+      <section className="sp-hero">
+        <span className="sp-hud sp-hud-tl" />
+        <span className="sp-hud sp-hud-tr" />
+        <span className="sp-hud sp-hud-bl" />
+        <span className="sp-hud sp-hud-br" />
+        <div className="sp-directive">
+          <span />
+          Field board
+          <span />
+        </div>
+        <h1 className="sp-page-title">
+          SENTINALS<em>PRIME</em>
+        </h1>
+        <p className="sp-lede">{briefing.lede}</p>
+      </section>
 
       {captures.length === 0 ? (
         <p className="sp-empty">No captures on the board yet.</p>
@@ -37,8 +50,8 @@ function Home() {
                           : `/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`
                       }
                       alt=""
-                      width={960}
-                      height={480}
+                      loading="lazy"
+                      decoding="async"
                     />
                     <div className="sp-capture-meta">
                       <h3>{capture.name}</h3>
@@ -53,11 +66,12 @@ function Home() {
       <p className="sp-note">{briefing.note}</p>
 
       <section className="sp-feature-grid" id="briefing">
-        {briefing.steps.map((step) => (
-          <article key={step.kicker} className="sp-feature-card">
+        {briefing.steps.map((step, index) => (
+          <article key={step.kicker} className="sp-feature-card" style={{ animationDelay: `${index * 140}ms` }}>
             <span className="sp-kicker">{step.kicker}</span>
             <h3>{step.title}</h3>
             <p>{step.body}</p>
+            <b />
           </article>
         ))}
       </section>

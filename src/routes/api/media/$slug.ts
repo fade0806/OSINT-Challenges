@@ -14,13 +14,12 @@ export const Route = createFileRoute("/api/media/$slug")({
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           try {
             const remote = await import("@/lib/blob-board.server");
-            const data = await remote.remoteImage(slug, full);
-            if (data) {
-              const bytes = Uint8Array.from(Buffer.from(data, "base64"));
-              return new Response(bytes, {
+            const media = await remote.remoteImage(slug, full);
+            if (media) {
+              return new Response(media.body, {
                 headers: {
-                  "content-type": "image/jpeg",
-                  "cache-control": "public, max-age=3600",
+                  "content-type": media.mime || "image/jpeg",
+                  "cache-control": "public, max-age=86400",
                 },
               });
             }

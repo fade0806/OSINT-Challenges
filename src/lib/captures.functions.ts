@@ -8,6 +8,8 @@ export type CaptureCard = {
   category: string;
   brief: string;
   updatedAt: string;
+  visible: boolean;
+  sample?: boolean;
 };
 
 export type BriefingStep = {
@@ -44,7 +46,7 @@ export const defaultBriefing: Briefing = {
   ],
 };
 
-const MAX_IMAGE_CHARS = 8_000_000;
+const MAX_IMAGE_CHARS = 36_000_000;
 
 function cleanText(value: unknown, max: number, label: string) {
   if (typeof value !== "string") throw new Error(`${label} is required.`);
@@ -145,7 +147,7 @@ async function listRows() {
   const sql = await getSql();
   await seedSample();
   return sql<CaptureCard>`
-    select slug, name, category, brief, updated_at::text as "updatedAt"
+    select slug, name, category, brief, updated_at::text as "updatedAt", visible
     from captures
     order by created_at asc
   `;
@@ -187,6 +189,8 @@ const staticCapture: CaptureCard = {
   brief:
     "Volcanic shore. Dark rock, moss in the cracks, open water on the horizon. Walk the sphere, then pin the location on the CTF map.",
   updatedAt: "static",
+  visible: true,
+  sample: true,
 };
 
 async function assertMayEdit(userId: string) {
@@ -194,14 +198,41 @@ async function assertMayEdit(userId: string) {
   await requireOperator(userId);
 }
 
-function publicCard(capture: { slug: string; name: string; category: string; brief: string; updatedAt: string }): CaptureCard {
+function publicCard(capture: {
+  slug: string;
+  name: string;
+  category: string;
+  brief: string;
+  updatedAt: string;
+  visible?: boolean;
+  sample?: boolean;
+}): CaptureCard {
   return {
     slug: capture.slug,
     name: capture.name,
     category: capture.category,
     brief: capture.brief,
     updatedAt: capture.updatedAt,
+    visible: capture.visible !== false,
+    sample: capture.sample,
   };
+}
+
+function adminCards(stored: CaptureCard[], showSample: boolean) {
+  const rest = stored.filter((capture) => capture.slug !== staticCapture.slug);
+  const storedSample = stored.find((capture) => capture.slug === staticCapture.slug);
+  const sample = storedSample
+    ? { ...storedSample, sample: false as const }
+    : { ...staticCapture, visible: showSample, sample: true as const };
+  return [sample, ...rest];
+}
+
+function withSample(stored: CaptureCard[], showSample: boolean) {
+  const rest = stored.filter((capture) => capture.slug !== staticCapture.slug);
+  const storedSample = stored.find((capture) => capture.slug === staticCapture.slug);
+  const sample = storedSample ?? { ...staticCapture, visible: showSample, sample: true };
+  const visibleSample = sample.visible ? [sample] : [];
+  return [...visibleSample, ...rest.filter((capture) => capture.visible)];
 }
 
 export const gateStatus = createServerFn({ method: "GET" }).handler(async () => {
@@ -218,14 +249,23 @@ export const unlockBoard = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+async function readShowSample() {
+  const sql = await getSql();
+  const rows = await sql<{ value: string }>`select value from board_meta where key = 'show_sample'`;
+  return rows[0]?.value !== "0";
+}
+
 export const getBoard = createServerFn({ method: "GET" }).handler(async () => {
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
       const remote = await import("./blob-board.server");
       const board = await remote.remoteBoard();
-      const captures = board.captures.map(publicCard);
+      const captures = withSample(
+        board.captures.map((capture) => publicCard(capture)),
+        board.showSample !== false,
+      );
       return {
-        captures: captures.length ? captures : [staticCapture],
+        captures,
         briefing: board.briefing ? cleanBriefing(board.briefing) : defaultBriefing,
       };
     } catch (error) {
@@ -234,8 +274,8 @@ export const getBoard = createServerFn({ method: "GET" }).handler(async () => {
     }
   }
   try {
-    const [captures, briefing] = await Promise.all([listRows(), readBriefing()]);
-    return { captures, briefing };
+    const [stored, briefing, showSample] = await Promise.all([listRows(), readBriefing(), readShowSample()]);
+    return { captures: withSample(stored, showSample), briefing };
   } catch (error) {
     console.error(error);
     return { captures: [staticCapture], briefing: defaultBriefing };
@@ -255,7 +295,10 @@ export const getCapture = createServerFn({ method: "GET" })
         const remote = await import("./blob-board.server");
         const board = await remote.remoteBoard();
         const found = board.captures.find((item) => item.slug === slug);
-        if (found) return publicCard(found);
+        if (found) {
+          if (found.visible === false) return null;
+          return publicCard(found);
+        }
       } catch (error) {
         console.error(error);
       }
@@ -265,11 +308,13 @@ export const getCapture = createServerFn({ method: "GET" })
       await seedSample();
       const sql = await getSql();
       const rows = await sql<CaptureCard>`
-        select slug, name, category, brief, updated_at::text as "updatedAt"
+        select slug, name, category, brief, updated_at::text as "updatedAt", visible
         from captures
         where slug = ${slug}
       `;
-      return rows[0] ?? (slug === staticCapture.slug ? staticCapture : null);
+      const found = rows[0];
+      if (found && found.visible === false) return null;
+      return found ?? (slug === staticCapture.slug ? staticCapture : null);
     } catch (error) {
       console.error(error);
       return slug === staticCapture.slug ? staticCapture : null;
@@ -282,10 +327,11 @@ export const adminBoard = createServerFn({ method: "GET" })
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const remote = await import("./blob-board.server");
       const board = await remote.remoteBoard();
+      const captures = board.captures.map((capture) => publicCard(capture));
       const briefing = board.briefing ? cleanBriefing(board.briefing) : defaultBriefing;
-      const captures = board.captures.map(publicCard);
+      const listed = adminCards(captures, board.showSample !== false);
       if (process.env.OPERATOR_PASSWORD) {
-        return { isOperator: true, operatorCount: 1, captures, briefing };
+        return { isOperator: true, operatorCount: 1, captures: listed, briefing };
       }
       const sql = await getSql();
       const operators = await sql<{ n: number }>`select count(*)::int as n from operators`;
@@ -295,7 +341,7 @@ export const adminBoard = createServerFn({ method: "GET" })
       return {
         isOperator: mine.length > 0,
         operatorCount: Number(operators[0]?.n ?? 0),
-        captures,
+        captures: listed,
         briefing,
       };
     }
@@ -306,10 +352,11 @@ export const adminBoard = createServerFn({ method: "GET" })
     `;
     const captures = await listRows();
     const briefing = await readBriefing();
+    const showSample = await readShowSample();
     return {
       isOperator: mine.length > 0,
       operatorCount: Number(operators[0]?.n ?? 0),
-      captures,
+      captures: adminCards(captures, showSample),
       briefing,
     };
   });
@@ -351,21 +398,63 @@ export const claimBoard = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+export const setCaptureShown = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((input: { slug: string; visible: boolean; sample?: boolean }) => {
+    if (!input || typeof input.slug !== "string" || !/^[a-z0-9-]{1,80}$/.test(input.slug)) {
+      throw new Error("Unknown capture.");
+    }
+    return { slug: input.slug, visible: Boolean(input.visible), sample: Boolean(input.sample) };
+  })
+  .handler(async ({ context, data }) => {
+    await assertMayEdit(context.userId);
+    if (data.sample) {
+      const value = data.visible ? "1" : "0";
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        const remote = await import("./blob-board.server");
+        await remote.remoteSetSample(data.visible);
+        return { ok: true as const };
+      }
+      const sql = await getSql();
+      await sql`
+        insert into board_meta (key, value) values ('show_sample', ${value})
+        on conflict (key) do update set value = ${value}
+      `;
+      return { ok: true as const };
+    }
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const remote = await import("./blob-board.server");
+      await remote.remoteSetVisible(data.slug, data.visible);
+      return { ok: true as const };
+    }
+    const sql = await getSql();
+    const rows = await sql<{ slug: string }>`
+      update captures set visible = ${data.visible}, updated_at = now()
+      where slug = ${data.slug}
+      returning slug
+    `;
+    if (!rows.length) throw new Error("That capture is gone.");
+    return { ok: true as const };
+  });
+
 type CaptureInput = {
   name: string;
   category: string;
   brief: string;
   image: string;
   thumb: string;
+  mime: string;
 };
 
 function readCaptureInput(input: CaptureInput): CaptureInput {
+  const mime = typeof input?.mime === "string" && input.mime.startsWith("image/") ? input.mime.slice(0, 80) : "image/jpeg";
   return {
     name: cleanText(input?.name, 80, "Name"),
     category: cleanText(input?.category, 40, "Category"),
     brief: cleanBrief(input?.brief),
     image: cleanImage(input?.image, "Panorama"),
     thumb: cleanImage(input?.thumb, "Preview"),
+    mime,
   };
 }
 
@@ -386,6 +475,8 @@ export const publishCapture = createServerFn({ method: "POST" })
         name: data.name,
         category: data.category,
         brief: data.brief,
+        mime: data.mime,
+        visible: true,
         image: data.image,
         thumb: data.thumb,
         updatedAt: new Date().toISOString(),
@@ -401,7 +492,7 @@ export const publishCapture = createServerFn({ method: "POST" })
         ${data.name},
         ${data.category},
         ${data.brief},
-        'image/jpeg',
+        ${data.mime},
         ${data.image},
         ${data.thumb},
         ${context.userId}
@@ -417,6 +508,7 @@ type UpdateInput = {
   brief: string;
   image?: string;
   thumb?: string;
+  mime?: string;
 };
 
 export const updateCapture = createServerFn({ method: "POST" })
@@ -434,6 +526,8 @@ export const updateCapture = createServerFn({ method: "POST" })
     if (input.image || input.thumb) {
       next.image = cleanImage(input.image, "Panorama");
       next.thumb = cleanImage(input.thumb, "Preview");
+      next.mime =
+        typeof input.mime === "string" && input.mime.startsWith("image/") ? input.mime.slice(0, 80) : "image/jpeg";
     }
     return next;
   })
@@ -447,6 +541,7 @@ export const updateCapture = createServerFn({ method: "POST" })
           name: data.name,
           category: data.category,
           brief: data.brief,
+          mime: data.mime,
           image: data.image ?? "",
           thumb: data.thumb ?? "",
           updatedAt: new Date().toISOString(),
@@ -464,7 +559,7 @@ export const updateCapture = createServerFn({ method: "POST" })
             brief = ${data.brief},
             image_b64 = ${data.image},
             thumb_b64 = ${data.thumb},
-            mime = 'image/jpeg',
+            mime = ${data.mime || "image/jpeg"},
             updated_at = now()
         where slug = ${data.slug}
         returning slug
