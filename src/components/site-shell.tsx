@@ -34,7 +34,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 <span className="sp-brand-title">
                   SENTINALS<span>PRIME</span>
                 </span>
-                <span className="sp-brand-subtitle">CTF</span>
+                <span className="sp-brand-subtitle">Field board // GEOINT</span>
               </span>
             </Link>
           </div>
