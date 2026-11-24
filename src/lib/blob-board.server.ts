@@ -1,5 +1,5 @@
 import { del, get, issueSignedToken, list, presignUrl, put } from "@vercel/blob";
-import { isOwnedPath, orphanPathnames, pathsForCapture, stalePaths } from "@/lib/blob-purge";
+import { isBlobReadUrl, isOwnedPath, orphanPathnames, pathsForCapture, stalePaths } from "@/lib/blob-purge";
 
 export type RemoteCapture = {
   slug: string;
@@ -24,6 +24,12 @@ export type RemoteBoard = {
   captures: RemoteCapture[];
 };
 
+function publicError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : "";
+  if (!message || /token|secret|password|authorization|bearer|blob_read/i.test(message)) return fallback;
+  return message.slice(0, 180);
+}
+
 const STATE = "board/state.json";
 let boardCache: { at: number; board: RemoteBoard } | null = null;
 
@@ -37,9 +43,7 @@ async function readBoard(): Promise<RemoteBoard> {
   try {
     result = await get(STATE, { access: "private", useCache: false });
   } catch (error) {
-    throw new Error(
-      error instanceof Error ? error.message : "Could not read the board. Nothing was changed.",
-    );
+    throw new Error(publicError(error, "Could not read the board. Nothing was changed."));
   }
   if (!result) {
     const empty = { briefing: null, showSample: true, captures: [] };
@@ -142,6 +146,7 @@ export async function remoteBoard() {
 }
 
 export async function remoteReadUrl(pathname: string) {
+  if (!isOwnedPath(pathname)) throw new Error("That panorama was not stored.");
   const validUntil = Date.now() + 15 * 60 * 1000;
   const token = await issueSignedToken({
     pathname,
@@ -154,6 +159,7 @@ export async function remoteReadUrl(pathname: string) {
     pathname,
     validUntil,
   });
+  if (!isBlobReadUrl(signed.presignedUrl)) throw new Error("Could not open that panorama.");
   return signed.presignedUrl;
 }
 

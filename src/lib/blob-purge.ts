@@ -2,7 +2,7 @@ export const ORPHAN_GRACE_MS = 15 * 60 * 1000;
 
 const OWNED = /^captures\/[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$/;
 
-export function isOwnedPath(path: string | undefined | null): path is string {
+export function isOwnedPath(path: unknown): path is string {
   return typeof path === "string" && OWNED.test(path) && !path.includes("..") && !path.includes("//");
 }
 
@@ -23,6 +23,17 @@ export function pathsForCapture(capture: {
 export function stalePaths(previous: Array<string | undefined | null>, next: Array<string | undefined | null>): string[] {
   const keep = new Set(next.filter(isOwnedPath));
   return [...new Set(previous.filter(isOwnedPath).filter((path) => !keep.has(path)))];
+}
+
+const BLOB_HOST = /^[a-z0-9-]+\.(?:private|public)\.blob\.vercel-storage\.com$/i;
+
+export function isBlobReadUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && BLOB_HOST.test(url.hostname) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
 }
 
 export type ListedBlob = { pathname: string; uploadedAt: Date | string | number };

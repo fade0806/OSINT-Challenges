@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { isBlobReadUrl, isOwnedPath } from "@/lib/blob-purge";
 import { getSql } from "@/lib/db";
+
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 const PRIVATE_MEDIA = {
   "cache-control": "private, no-store",
@@ -26,9 +29,9 @@ export const Route = createFileRoute("/api/media/$slug")({
             const capture = board.captures.find((item) => item.slug === slug);
             if (!capture || capture.visible === false) return missing();
             const assetPath = full ? capture.imagePath : capture.thumbPath;
-            if (assetPath) {
+            if (assetPath && isOwnedPath(assetPath)) {
               const signed = await remote.remoteReadUrl(assetPath);
-              if (!signed.startsWith("https://")) return missing();
+              if (!isBlobReadUrl(signed)) return missing();
               return new Response(null, {
                 status: 302,
                 headers: {
@@ -41,7 +44,7 @@ export const Route = createFileRoute("/api/media/$slug")({
             }
             const media = await remote.remoteImage(slug, full);
             if (!media) return missing();
-            const mime = media.mime?.startsWith("image/") ? media.mime : "application/octet-stream";
+            const mime = IMAGE_TYPES.has(media.mime ?? "") ? media.mime! : "application/octet-stream";
             return new Response(media.body, {
               headers: {
                 ...PRIVATE_MEDIA,
@@ -64,7 +67,7 @@ export const Route = createFileRoute("/api/media/$slug")({
                 select thumb_b64 as data, mime from captures where slug = ${slug} and visible = true
               `;
           const row = rows[0];
-          if (!row?.data || !row.mime?.startsWith("image/")) return missing();
+          if (!row?.data || !IMAGE_TYPES.has(row.mime)) return missing();
           const bytes = Uint8Array.from(Buffer.from(row.data, "base64"));
           return new Response(bytes, {
             headers: {

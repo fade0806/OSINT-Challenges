@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { isOwnedPath } from "@/lib/blob-purge";
 import { getSql } from "@/lib/db";
 import { operatorMiddleware } from "@/lib/operator-middleware";
 
@@ -53,9 +54,13 @@ export const defaultBriefing: Briefing = {
 
 const MAX_IMAGE_CHARS = 68_000_000;
 
+function plainText(value: string) {
+  return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim();
+}
+
 function cleanText(value: unknown, max: number, label: string) {
   if (typeof value !== "string") throw new Error(`${label} is required.`);
-  const text = value.trim();
+  const text = plainText(value);
   if (!text) throw new Error(`${label} is required.`);
   if (text.length > max) throw new Error(`${label} is too long.`);
   return text;
@@ -63,9 +68,15 @@ function cleanText(value: unknown, max: number, label: string) {
 
 function cleanBrief(value: unknown) {
   if (typeof value !== "string") return "";
-  const text = value.trim();
+  const text = plainText(value);
   if (text.length > 2000) throw new Error("Description is too long.");
   return text;
+}
+
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+function cleanMime(value: unknown) {
+  return typeof value === "string" && IMAGE_TYPES.has(value) ? value : "image/jpeg";
 }
 
 function cleanImage(value: unknown, label: string) {
@@ -392,6 +403,7 @@ export const saveBriefing = createServerFn({ method: "POST" })
 export const claimBoard = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .handler(async ({ context }) => {
+    if (process.env.OPERATOR_PASSWORD) return { ok: true as const };
     const sql = await getSql();
     const users = await sql<{ email: string }>`
       select email from "user" where id = ${context.userId}
@@ -460,10 +472,8 @@ type CaptureInput = {
   height?: number;
 };
 
-function cleanPath(value: unknown) {
-  if (typeof value !== "string" || !value.startsWith("captures/") || value.includes("..") || value.length > 240) {
-    throw new Error("That panorama was not stored.");
-  }
+function cleanPath(value: unknown): string {
+  if (!isOwnedPath(value)) throw new Error("That panorama was not stored.");
   return value;
 }
 
@@ -474,7 +484,7 @@ function cleanCount(value: unknown, max: number) {
 }
 
 function readCaptureInput(input: CaptureInput): CaptureInput {
-  const mime = typeof input?.mime === "string" && input.mime.startsWith("image/") ? input.mime.slice(0, 80) : "image/jpeg";
+  const mime = cleanMime(input?.mime);
   const next: CaptureInput = {
     name: cleanText(input?.name, 80, "Name"),
     category: cleanText(input?.category, 40, "Category"),
@@ -576,13 +586,11 @@ export const updateCapture = createServerFn({ method: "POST" })
     if (input.imagePath || input.thumbPath) {
       next.imagePath = cleanPath(input.imagePath);
       next.thumbPath = cleanPath(input.thumbPath);
-      next.mime =
-        typeof input.mime === "string" && input.mime.startsWith("image/") ? input.mime.slice(0, 80) : "image/jpeg";
+      next.mime = cleanMime(input.mime);
     } else if (input.image || input.thumb) {
       next.image = cleanImage(input.image, "Panorama");
       next.thumb = cleanImage(input.thumb, "Preview");
-      next.mime =
-        typeof input.mime === "string" && input.mime.startsWith("image/") ? input.mime.slice(0, 80) : "image/jpeg";
+      next.mime = cleanMime(input.mime);
     }
     return next;
   })

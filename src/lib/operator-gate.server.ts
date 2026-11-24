@@ -1,26 +1,27 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { getCookie, getRequest, setResponseHeader } from "@tanstack/react-start/server";
+import { clientAddress, cookieName, issueOperatorCookie, passwordMatches, readOperatorCookie } from "@/lib/operator-gate";
 
-const COOKIE = "sp_operator";
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
 const attempts = new Map<string, number[]>();
 
-function expectedToken(secret: string) {
-  return createHmac("sha256", secret).update("sentinalsprime-operator").digest("hex");
+function requestHeaders() {
+  try {
+    return getRequest()?.headers ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function clientKey() {
-  try {
-    const forwarded = getRequest()?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
-    return forwarded.slice(0, 80) || "local";
-  } catch {
-    return "local";
-  }
+  const headers = requestHeaders();
+  if (!headers) return "local";
+  return clientAddress((name) => headers.get(name));
 }
 
 function recentAttempts(key: string) {
   const now = Date.now();
+  if (attempts.size > 2000) attempts.clear();
   const recent = (attempts.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
   attempts.set(key, recent);
   return recent;
@@ -45,26 +46,36 @@ export function resetOperatorAttempts() {
   attempts.clear();
 }
 
+function secret() {
+  return process.env.OPERATOR_PASSWORD ?? "";
+}
+
+function secureCookie() {
+  return Boolean(process.env.VERCEL);
+}
+
 export function operatorCookieOk() {
-  const secret = process.env.OPERATOR_PASSWORD;
-  if (!secret) return false;
-  const raw = getCookie(COOKIE);
-  if (!raw) return false;
-  const a = Buffer.from(raw);
-  const b = Buffer.from(expectedToken(secret));
-  return a.length === b.length && timingSafeEqual(a, b);
+  const headers = requestHeaders();
+  const raw = headers?.get("cookie") ?? "";
+  const name = cookieName(secureCookie());
+  const fromHeader = raw
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
+  const value = fromHeader || getCookie(name);
+  return readOperatorCookie(value, secret());
 }
 
 export function unlockOperator(password: string) {
-  const secret = process.env.OPERATOR_PASSWORD;
-  if (!secret || typeof password !== "string" || password.length > 200) return false;
-  const a = Buffer.from(password);
-  const b = Buffer.from(secret);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
-  const secure = process.env.VERCEL ? "; Secure" : "";
+  const passphrase = secret();
+  if (!passwordMatches(password, passphrase)) return false;
+  const secure = secureCookie();
+  const name = cookieName(secure);
+  const secureFlag = secure ? "; Secure" : "";
   setResponseHeader(
     "set-cookie",
-    `${COOKIE}=${expectedToken(secret)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000${secure}`,
+    `${name}=${issueOperatorCookie(passphrase)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${60 * 60 * 24 * 30}${secureFlag}`,
   );
   return true;
 }

@@ -41,10 +41,10 @@ export async function storePanorama(file: File, onProgress?: (percent: number) =
     onUploadProgress: (event) => onProgress?.(Math.round(event.percentage)),
   }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "";
-    if (message.toLowerCase().includes("token")) {
+    if (message.toLowerCase().includes("token") || /secret|password|authorization/i.test(message)) {
       throw new Error("The original file did not upload. Unlock the console and try again. It was not resized.");
     }
-    throw error instanceof Error ? error : new Error("The original file did not upload.");
+    throw new Error(message.slice(0, 180) || "The original file did not upload.");
   });
 
   const thumbBytes = Uint8Array.from(atob(inspected.thumb), (char) => char.charCodeAt(0));

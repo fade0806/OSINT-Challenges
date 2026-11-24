@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-
-const SAFE_UPLOAD = /^captures\/[A-Za-z0-9][A-Za-z0-9._/-]{0,180}$/;
+import { isOwnedPath } from "@/lib/blob-purge";
 
 export const Route = createFileRoute("/api/blob")({
   server: {
@@ -31,7 +30,7 @@ export const Route = createFileRoute("/api/blob")({
             body,
             request,
             onBeforeGenerateToken: async (pathname) => {
-              if (!SAFE_UPLOAD.test(pathname) || pathname.includes("..")) {
+              if (!isOwnedPath(pathname)) {
                 throw new Error("That upload path is not allowed.");
               }
               return {
