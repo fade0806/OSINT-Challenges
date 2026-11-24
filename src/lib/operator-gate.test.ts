@@ -3,9 +3,12 @@ import test from "node:test";
 import {
   clientAddress,
   issueOperatorCookie,
+  newSessionId,
   operatorCookieHeader,
   passwordMatches,
   readOperatorCookie,
+  rememberSession,
+  revokeSession,
 } from "./operator-gate.ts";
 
 const secret = "test-secret-not-the-live-one";
@@ -18,14 +21,27 @@ test("a wrong or partial passphrase does not match", () => {
 
 test("an operator cookie expires and fails if it is edited", () => {
   const now = Date.parse("2026-11-24T12:00:00Z");
-  const raw = issueOperatorCookie(secret, now);
-  assert.equal(readOperatorCookie(raw, secret, now + 1000), true);
-  assert.equal(readOperatorCookie(raw, secret, now + 31 * 24 * 60 * 60 * 1000), false);
-  assert.equal(readOperatorCookie(raw, "other-secret", now + 1000), false);
-  const [exp, mac] = raw.split(".");
+  const sessionId = newSessionId();
+  const raw = issueOperatorCookie(secret, sessionId, now);
+  assert.equal(readOperatorCookie(raw, secret, now + 1000), sessionId);
+  assert.equal(readOperatorCookie(raw, secret, now + 31 * 24 * 60 * 60 * 1000), null);
+  assert.equal(readOperatorCookie(raw, "other-secret", now + 1000), null);
+  const parts = raw.split(".");
+  const mac = parts[2];
   const flipped = mac.endsWith("0") ? `${mac.slice(0, -1)}1` : `${mac.slice(0, -1)}0`;
-  assert.equal(readOperatorCookie(`${exp}.${flipped}`, secret, now + 1000), false);
-  assert.equal(readOperatorCookie("not-a-cookie", secret, now), false);
+  parts[2] = flipped;
+  assert.equal(readOperatorCookie(parts.join("."), secret, now + 1000), null);
+  parts[1] = newSessionId();
+  parts[2] = mac;
+  assert.equal(readOperatorCookie(parts.join("."), secret, now + 1000), null);
+  assert.equal(readOperatorCookie("not-a-cookie", secret, now), null);
+});
+
+test("logout revokes that session id and leaves a different login", () => {
+  const first = newSessionId();
+  const second = newSessionId();
+  const ids = revokeSession(rememberSession(rememberSession([], first), second), first);
+  assert.deepEqual(ids, [second]);
 });
 
 test("logout clears the operator cookie instead of issuing a new one", () => {
@@ -35,7 +51,7 @@ test("logout clears the operator cookie instead of issuing a new one", () => {
   assert.match(header, /HttpOnly/);
   assert.match(header, /Secure/);
   assert.equal(header.includes("Domain="), false);
-  assert.equal(readOperatorCookie("", secret), false);
+  assert.equal(readOperatorCookie("", secret), null);
 });
 
 test("the attempt limit uses the platform address, not a spoofed first hop", () => {

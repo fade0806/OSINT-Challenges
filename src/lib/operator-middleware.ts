@@ -10,7 +10,7 @@ export const operatorMiddleware = createMiddleware({ type: "function" })
       const { assertSameSiteRequest } = await import("@/lib/auth/isolation.server");
       const { operatorCookieOk } = await import("./operator-gate.server");
       assertSameSiteRequest();
-      if (!operatorCookieOk()) throw new Error("Operator sign-in required.");
+      if (!(await operatorCookieOk())) throw new Error("Operator sign-in required.");
       return next({ context: { userId: "operator" } });
     }
     const { assertSameSiteRequest } = await import("@/lib/auth/isolation.server");

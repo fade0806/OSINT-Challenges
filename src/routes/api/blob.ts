@@ -16,7 +16,7 @@ export const Route = createFileRoute("/api/blob")({
         } catch {
           return new Response("Forbidden", { status: 403 });
         }
-        if (!operatorCookieOk()) {
+        if (!(await operatorCookieOk())) {
           return new Response("Operator sign-in required.", { status: 401 });
         }
         let body: HandleUploadBody;

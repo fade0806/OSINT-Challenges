@@ -1,4 +1,4 @@
-import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 export const OPERATOR_MAX_AGE_SEC = 60 * 60 * 24 * 30;
 
@@ -15,24 +15,39 @@ export function passwordMatches(password: string, secret: string) {
   return timingSafeEqual(attempt, knownSecret.key);
 }
 
-export function issueOperatorCookie(secret: string, now = Date.now()) {
+export function issueOperatorCookie(secret: string, sessionId: string, now = Date.now()) {
   const exp = Math.floor(now / 1000) + OPERATOR_MAX_AGE_SEC;
-  const mac = createHmac("sha256", secret).update(`sentinalsprime-operator.${exp}`).digest("hex");
-  return `${exp}.${mac}`;
+  const mac = createHmac("sha256", secret).update(`sentinalsprime-operator.${exp}.${sessionId}`).digest("hex");
+  return `${exp}.${sessionId}.${mac}`;
 }
 
 export function readOperatorCookie(raw: string | undefined, secret: string, now = Date.now()) {
-  if (!raw || !secret || raw.length > 120) return false;
-  const dot = raw.indexOf(".");
-  if (dot <= 0) return false;
-  const exp = Number(raw.slice(0, dot));
-  const mac = raw.slice(dot + 1);
+  if (!raw || !secret || raw.length > 160) return null;
+  const parts = raw.split(".");
+  if (parts.length !== 3) return null;
+  const [expText, sessionId, mac] = parts;
+  if (!/^[a-f0-9]{32}$/.test(sessionId) || !/^[a-f0-9]{64}$/.test(mac)) return null;
+  const exp = Number(expText);
   const nowSec = Math.floor(now / 1000);
-  if (!Number.isSafeInteger(exp) || exp < nowSec || exp > nowSec + OPERATOR_MAX_AGE_SEC + 60) return false;
-  const expected = createHmac("sha256", secret).update(`sentinalsprime-operator.${exp}`).digest("hex");
+  if (!Number.isSafeInteger(exp) || exp < nowSec || exp > nowSec + OPERATOR_MAX_AGE_SEC + 60) return null;
+  const expected = createHmac("sha256", secret).update(`sentinalsprime-operator.${exp}.${sessionId}`).digest("hex");
   const a = Buffer.from(mac);
   const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  return sessionId;
+}
+
+export function newSessionId() {
+  return randomBytes(16).toString("hex");
+}
+
+export function rememberSession(ids: string[], id: string) {
+  if (!/^[a-f0-9]{32}$/.test(id)) return ids.filter((item) => /^[a-f0-9]{32}$/.test(item)).slice(-8);
+  return [...ids.filter((item) => item !== id && /^[a-f0-9]{32}$/.test(item)), id].slice(-8);
+}
+
+export function revokeSession(ids: string[], id: string) {
+  return ids.filter((item) => item !== id);
 }
 
 export function cookieName(secure: boolean) {

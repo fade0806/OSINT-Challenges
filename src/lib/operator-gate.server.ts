@@ -65,7 +65,7 @@ function readNamedCookie(name: string) {
   return fromHeader || getCookie(name);
 }
 
-export function operatorCookieOk() {
+function presentedSession() {
   const secure = secureCookie();
   const host = readNamedCookie("__Host-sp_operator");
   const plain = readNamedCookie("sp_operator");
@@ -73,18 +73,33 @@ export function operatorCookieOk() {
   return readOperatorCookie(value, secret());
 }
 
-export function lockOperator() {
-  const secure = secureCookie();
-  setResponseHeader("set-cookie", operatorCookieHeader("", secure, 0));
+export async function operatorCookieOk() {
+  const sessionId = presentedSession();
+  if (!sessionId) return false;
+  try {
+    const { operatorSessionLive } = await import("./operator-session.server");
+    return await operatorSessionLive(sessionId);
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
 }
 
-export function unlockOperator(password: string) {
+export async function lockOperator() {
+  const sessionId = presentedSession();
+  const { closeOperatorSession } = await import("./operator-session.server");
+  await closeOperatorSession(sessionId);
+  setResponseHeader("set-cookie", operatorCookieHeader("", secureCookie(), 0));
+}
+
+export async function unlockOperator(password: string) {
   const passphrase = secret();
   if (!passwordMatches(password, passphrase)) return false;
-  const secure = secureCookie();
+  const { openOperatorSession } = await import("./operator-session.server");
+  const sessionId = await openOperatorSession();
   setResponseHeader(
     "set-cookie",
-    operatorCookieHeader(issueOperatorCookie(passphrase), secure, 60 * 60 * 24 * 30),
+    operatorCookieHeader(issueOperatorCookie(passphrase, sessionId), secureCookie(), 60 * 60 * 24 * 30),
   );
   return true;
 }

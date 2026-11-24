@@ -214,7 +214,7 @@ function visibleOnly(stored: CaptureCard[]) {
 export const gateStatus = createServerFn({ method: "GET" }).handler(async () => {
   if (!process.env.OPERATOR_PASSWORD) return { mode: "account" as const, unlocked: false };
   const { operatorCookieOk } = await import("./operator-gate.server");
-  return { mode: "passphrase" as const, unlocked: operatorCookieOk() };
+  return { mode: "passphrase" as const, unlocked: await operatorCookieOk() };
 });
 
 export const unlockBoard = createServerFn({ method: "POST" })
@@ -226,7 +226,7 @@ export const unlockBoard = createServerFn({ method: "POST" })
     );
     assertSameSiteRequest();
     if (operatorLocked()) throw new Error("Too many attempts. Wait ten minutes and try again.");
-    if (!unlockOperator(data)) {
+    if (!(await unlockOperator(data))) {
       noteOperatorFailure();
       throw new Error("That passphrase is wrong.");
     }
@@ -367,7 +367,7 @@ export const openConsole = createServerFn({ method: "GET" }).handler(async () =>
     return { mode: "account" as const, unlocked: false as const, board: null };
   }
   const { operatorCookieOk } = await import("./operator-gate.server");
-  if (!operatorCookieOk()) {
+  if (!(await operatorCookieOk())) {
     return { mode: "passphrase" as const, unlocked: false as const, board: null };
   }
   return { mode: "passphrase" as const, unlocked: true as const, board: await loadOperatorBoard("operator") };
