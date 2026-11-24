@@ -14,6 +14,7 @@ export type CaptureCard = {
   width?: number;
   height?: number;
   src?: string;
+  thumbSrc?: string;
 };
 
 export type BriefingStep = {
@@ -29,7 +30,7 @@ export type Briefing = {
 };
 
 export const defaultBriefing: Briefing = {
-  lede: "Spherical imagery for field-analysis challenges. Open a challenge, look around, then submit the answer on the CTF board by pinning the location on the map.",
+  lede: "Open a sphere, study the ground, and pin what you find on the CTF map.",
   note: "Answers are pinpointed on the map on the CTF site, not here.",
   steps: [
     {
@@ -122,7 +123,7 @@ async function readBriefing(): Promise<Briefing> {
   const rows = await sql<{ value: string }>`select value from board_meta where key = 'briefing'`;
   if (!rows[0]?.value) return defaultBriefing;
   try {
-    return cleanBriefing(JSON.parse(rows[0].value));
+    return shownBriefing(JSON.parse(rows[0].value));
   } catch {
     return defaultBriefing;
   }
@@ -160,6 +161,15 @@ async function uniqueSlug(base: string) {
 async function assertMayEdit(userId: string) {
   if (process.env.OPERATOR_PASSWORD) return;
   await requireOperator(userId);
+}
+
+const PREVIOUS_LEDE =
+  "Spherical imagery for field-analysis challenges. Open a challenge, look around, then submit the answer on the CTF board by pinning the location on the map.";
+
+function shownBriefing(value: unknown): Briefing {
+  const briefing = value ? cleanBriefing(value) : defaultBriefing;
+  if (briefing.lede === PREVIOUS_LEDE) return { ...briefing, lede: defaultBriefing.lede };
+  return briefing;
 }
 
 function publicCard(capture: {
@@ -228,7 +238,7 @@ export const getBoard = createServerFn({ method: "GET" }).handler(async () => {
       const board = await remote.remoteBoard();
       return {
         captures: visibleOnly(board.captures.map((capture) => publicCard(capture))),
-        briefing: board.briefing ? cleanBriefing(board.briefing) : defaultBriefing,
+        briefing: shownBriefing(board.briefing),
       };
     } catch (error) {
       console.error(error);
@@ -291,43 +301,74 @@ export const getCapture = createServerFn({ method: "GET" })
     }
   });
 
-export const adminBoard = createServerFn({ method: "GET" })
-  .middleware([operatorMiddleware])
-  .handler(async ({ context }) => {
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const remote = await import("./blob-board.server");
-      const board = await remote.remoteBoard();
-      const captures = board.captures.map((capture) => publicCard(capture));
-      const briefing = board.briefing ? cleanBriefing(board.briefing) : defaultBriefing;
-      if (process.env.OPERATOR_PASSWORD) {
-        return { isOperator: true, operatorCount: 1, captures, briefing };
+async function withThumbs(
+  captures: Array<{ thumbPath?: string } & Parameters<typeof publicCard>[0]>,
+  sign: (path: string) => Promise<string>,
+) {
+  return Promise.all(
+    captures.map(async (capture) => {
+      const card = publicCard(capture);
+      if (!capture.thumbPath) return card;
+      try {
+        card.thumbSrc = await sign(capture.thumbPath);
+      } catch (error) {
+        console.error(error);
       }
-      const sql = await getSql();
-      const operators = await sql<{ n: number }>`select count(*)::int as n from operators`;
-      const mine = await sql<{ user_id: string }>`
-        select user_id from operators where user_id = ${context.userId}
-      `;
-      return {
-        isOperator: mine.length > 0,
-        operatorCount: Number(operators[0]?.n ?? 0),
-        captures,
-        briefing,
-      };
+      return card;
+    }),
+  );
+}
+
+async function loadOperatorBoard(userId: string) {
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const remote = await import("./blob-board.server");
+    const board = await remote.remoteBoard();
+    const captures = await withThumbs(board.captures, (path) => remote.remoteReadUrl(path));
+    const briefing = shownBriefing(board.briefing);
+    if (process.env.OPERATOR_PASSWORD) {
+      return { isOperator: true, operatorCount: 1, captures, briefing };
     }
     const sql = await getSql();
     const operators = await sql<{ n: number }>`select count(*)::int as n from operators`;
     const mine = await sql<{ user_id: string }>`
-      select user_id from operators where user_id = ${context.userId}
+      select user_id from operators where user_id = ${userId}
     `;
-    const captures = await listRows();
-    const briefing = await readBriefing();
     return {
       isOperator: mine.length > 0,
       operatorCount: Number(operators[0]?.n ?? 0),
       captures,
       briefing,
     };
-  });
+  }
+  const sql = await getSql();
+  const operators = await sql<{ n: number }>`select count(*)::int as n from operators`;
+  const mine = await sql<{ user_id: string }>`
+    select user_id from operators where user_id = ${userId}
+  `;
+  const captures = await listRows();
+  const briefing = await readBriefing();
+  return {
+    isOperator: mine.length > 0,
+    operatorCount: Number(operators[0]?.n ?? 0),
+    captures,
+    briefing,
+  };
+}
+
+export const openConsole = createServerFn({ method: "GET" }).handler(async () => {
+  if (!process.env.OPERATOR_PASSWORD) {
+    return { mode: "account" as const, unlocked: false as const, board: null };
+  }
+  const { operatorCookieOk } = await import("./operator-gate.server");
+  if (!operatorCookieOk()) {
+    return { mode: "passphrase" as const, unlocked: false as const, board: null };
+  }
+  return { mode: "passphrase" as const, unlocked: true as const, board: await loadOperatorBoard("operator") };
+});
+
+export const adminBoard = createServerFn({ method: "GET" })
+  .middleware([operatorMiddleware])
+  .handler(async ({ context }) => loadOperatorBoard(context.userId));
 
 export const saveBriefing = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])

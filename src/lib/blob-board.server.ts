@@ -25,8 +25,14 @@ export type RemoteBoard = {
 };
 
 const STATE = "board/state.json";
+let boardCache: { at: number; board: RemoteBoard } | null = null;
+
+function remember(board: RemoteBoard) {
+  boardCache = { at: Date.now(), board: structuredClone(board) };
+}
 
 async function readBoard(): Promise<RemoteBoard> {
+  if (boardCache && Date.now() - boardCache.at < 8000) return structuredClone(boardCache.board);
   let result;
   try {
     result = await get(STATE, { access: "private", useCache: false });
@@ -35,17 +41,23 @@ async function readBoard(): Promise<RemoteBoard> {
       error instanceof Error ? error.message : "Could not read the board. Nothing was changed.",
     );
   }
-  if (!result) return { briefing: null, showSample: true, captures: [] };
+  if (!result) {
+    const empty = { briefing: null, showSample: true, captures: [] };
+    remember(empty);
+    return structuredClone(empty);
+  }
   if (result.statusCode !== 200 || !result.stream) {
     throw new Error("Could not read the board. Nothing was changed.");
   }
   const text = await new Response(result.stream).text();
   const parsed = JSON.parse(text) as RemoteBoard;
-  return {
+  const board = {
     briefing: parsed.briefing ?? null,
     showSample: parsed.showSample !== false,
     captures: Array.isArray(parsed.captures) ? parsed.captures : [],
   };
+  remember(board);
+  return structuredClone(board);
 }
 
 async function putBytes(path: string, base64: string, contentType: string) {
@@ -78,6 +90,7 @@ async function externalize(board: RemoteBoard) {
 }
 
 async function writeBoard(board: RemoteBoard) {
+  boardCache = null;
   await externalize(board);
   await put(STATE, JSON.stringify(board), {
     access: "private",
@@ -86,6 +99,7 @@ async function writeBoard(board: RemoteBoard) {
     contentType: "application/json",
     cacheControlMaxAge: 0,
   });
+  remember(board);
 }
 
 async function forget(paths: Array<string | undefined | null>, keptChange: boolean) {

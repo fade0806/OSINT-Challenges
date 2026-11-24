@@ -8,7 +8,7 @@ import {
   adminBoard,
   claimBoard,
   defaultBriefing,
-  gateStatus,
+  openConsole,
   publishCapture,
   removeCapture,
   saveBriefing,
@@ -82,9 +82,11 @@ function AdminPage() {
 
   useEffect(() => {
     let cancelled = false;
-    gateStatus()
-      .then((status) => {
-        if (!cancelled) setGate(status);
+    openConsole()
+      .then((entry) => {
+        if (cancelled) return;
+        setGate({ mode: entry.mode, unlocked: entry.unlocked });
+        if (entry.board) setBoard(entry.board);
       })
       .catch(() => {
         if (!cancelled) setGate({ mode: "account", unlocked: false });
@@ -95,9 +97,7 @@ function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (!gate) return;
-    if (gate.mode === "passphrase" && !gate.unlocked) return;
-    if (gate.mode === "account" && !user) return;
+    if (!gate || gate.mode !== "account" || !user) return;
     let cancelled = false;
     adminBoard()
       .then((next) => {
@@ -547,7 +547,11 @@ function CaptureEditor({
         <img
           className="sp-admin-thumb"
           alt=""
-          src={thumb ? `data:image/jpeg;base64,${thumb}` : `/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`}
+          src={
+            thumb
+              ? `data:image/jpeg;base64,${thumb}`
+              : capture.thumbSrc || `/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`
+          }
         />
         <div>
           <h3>{capture.name}</h3>

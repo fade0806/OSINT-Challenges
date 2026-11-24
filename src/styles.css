@@ -926,26 +926,28 @@
 }
 
 .sp-admin-card .sp-admin-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .sp-admin-card .sp-admin-actions > * {
-  flex: 0 0 auto;
-  width: auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .sp-admin-card .sp-button,
 .sp-admin-card .sp-drop {
-  min-height: 36px;
-  width: auto;
-  padding: 0 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 8px;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
 .sp-admin-card .sp-drop {
-  display: inline-grid;
+  display: grid;
+  border-style: solid;
 }
 
 .pnlm-container {
@@ -1009,6 +1011,10 @@
 
   .sp-admin-split {
     grid-template-columns: 1fr;
+  }
+
+  .sp-admin-card .sp-admin-actions {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
