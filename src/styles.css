@@ -268,12 +268,16 @@
 }
 
 .sp-category-title {
-  margin: 0 0 16px;
+  margin: 0 0 20px;
   color: var(--color-fg-bright);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+}
+
+.sp-board-section + .sp-board-section {
+  margin-top: 88px;
 }
 
 .sp-capture-grid {

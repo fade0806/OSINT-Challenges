@@ -10,6 +10,10 @@ export type CaptureCard = {
   updatedAt: string;
   visible: boolean;
   sample?: boolean;
+  bytes?: number;
+  width?: number;
+  height?: number;
+  src?: string;
 };
 
 export type BriefingStep = {
@@ -46,7 +50,7 @@ export const defaultBriefing: Briefing = {
   ],
 };
 
-const MAX_IMAGE_CHARS = 36_000_000;
+const MAX_IMAGE_CHARS = 68_000_000;
 
 function cleanText(value: unknown, max: number, label: string) {
   if (typeof value !== "string") throw new Error(`${label} is required.`);
@@ -67,7 +71,7 @@ function cleanImage(value: unknown, label: string) {
   if (typeof value !== "string") throw new Error(`${label} is required.`);
   const data = value.includes(",") ? (value.split(",").pop() ?? "") : value;
   if (data.length < 32 || data.length > MAX_IMAGE_CHARS) {
-    throw new Error(`${label} is empty or too large. Use a JPEG under about 6 MB.`);
+    throw new Error(`${label} is empty or too large. Keep the original under 48 MB.`);
   }
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw new Error(`${label} is not a valid image.`);
   return data;
@@ -99,39 +103,20 @@ function slugify(name: string) {
   return slug || "capture";
 }
 
-async function seedSample() {
+async function dropSeededSample() {
   const sql = await getSql();
-  const claimed = await sql<{ key: string }>`
-    insert into board_meta (key, value) values ('seeded', '1')
-    on conflict (key) do nothing
-    returning key
-  `;
-  if (!claimed.length) return;
-
-  try {
-    const { readFile } = await import("node:fs/promises");
-    const { join } = await import("node:path");
-    const image = await readFile(join(process.cwd(), "public/panoramas/basalt-reach.jpg"));
-    const thumb = await readFile(join(process.cwd(), "public/panoramas/basalt-reach-thumb.jpg"));
-    await sql`
-      insert into captures (slug, name, category, brief, mime, image_b64, thumb_b64, created_by)
-      values (
-        'basalt-reach',
-        'Basalt Reach',
-        'GEOINT',
-        'Volcanic shore. Dark rock, moss in the cracks, open water on the horizon. Walk the sphere, then pin the location on the CTF map.',
-        'image/jpeg',
-        ${image.toString("base64")},
-        ${thumb.toString("base64")},
-        'seed'
-      )
-      on conflict (slug) do nothing
-    `;
-  } catch {
-    // Sample files are optional. The board still works from operator uploads.
-  }
+  await sql`delete from captures where created_by = 'seed'`;
 }
 
+async function listRows() {
+  const sql = await getSql();
+  await dropSeededSample();
+  return sql<CaptureCard>`
+    select slug, name, category, brief, updated_at::text as "updatedAt", visible
+    from captures
+    order by created_at asc
+  `;
+}
 async function readBriefing(): Promise<Briefing> {
   const sql = await getSql();
   const rows = await sql<{ value: string }>`select value from board_meta where key = 'briefing'`;
@@ -141,16 +126,6 @@ async function readBriefing(): Promise<Briefing> {
   } catch {
     return defaultBriefing;
   }
-}
-
-async function listRows() {
-  const sql = await getSql();
-  await seedSample();
-  return sql<CaptureCard>`
-    select slug, name, category, brief, updated_at::text as "updatedAt", visible
-    from captures
-    order by created_at asc
-  `;
 }
 
 async function requireOperator(userId: string) {
@@ -182,17 +157,6 @@ async function uniqueSlug(base: string) {
   throw new Error("Pick a different name.");
 }
 
-const staticCapture: CaptureCard = {
-  slug: "basalt-reach",
-  name: "Basalt Reach",
-  category: "GEOINT",
-  brief:
-    "Volcanic shore. Dark rock, moss in the cracks, open water on the horizon. Walk the sphere, then pin the location on the CTF map.",
-  updatedAt: "static",
-  visible: true,
-  sample: true,
-};
-
 async function assertMayEdit(userId: string) {
   if (process.env.OPERATOR_PASSWORD) return;
   await requireOperator(userId);
@@ -205,7 +169,9 @@ function publicCard(capture: {
   brief: string;
   updatedAt: string;
   visible?: boolean;
-  sample?: boolean;
+  bytes?: number;
+  width?: number;
+  height?: number;
 }): CaptureCard {
   return {
     slug: capture.slug,
@@ -214,25 +180,14 @@ function publicCard(capture: {
     brief: capture.brief,
     updatedAt: capture.updatedAt,
     visible: capture.visible !== false,
-    sample: capture.sample,
+    bytes: capture.bytes,
+    width: capture.width,
+    height: capture.height,
   };
 }
 
-function adminCards(stored: CaptureCard[], showSample: boolean) {
-  const rest = stored.filter((capture) => capture.slug !== staticCapture.slug);
-  const storedSample = stored.find((capture) => capture.slug === staticCapture.slug);
-  const sample = storedSample
-    ? { ...storedSample, sample: false as const }
-    : { ...staticCapture, visible: showSample, sample: true as const };
-  return [sample, ...rest];
-}
-
-function withSample(stored: CaptureCard[], showSample: boolean) {
-  const rest = stored.filter((capture) => capture.slug !== staticCapture.slug);
-  const storedSample = stored.find((capture) => capture.slug === staticCapture.slug);
-  const sample = storedSample ?? { ...staticCapture, visible: showSample, sample: true };
-  const visibleSample = sample.visible ? [sample] : [];
-  return [...visibleSample, ...rest.filter((capture) => capture.visible)];
+function visibleOnly(stored: CaptureCard[]) {
+  return stored.filter((capture) => capture.visible);
 }
 
 export const gateStatus = createServerFn({ method: "GET" }).handler(async () => {
@@ -249,10 +204,12 @@ export const unlockBoard = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-async function readShowSample() {
-  const sql = await getSql();
-  const rows = await sql<{ value: string }>`select value from board_meta where key = 'show_sample'`;
-  return rows[0]?.value !== "0";
+export const uploadMode = createServerFn({ method: "GET" }).handler(async () => {
+  return { direct: Boolean(process.env.BLOB_READ_WRITE_TOKEN && process.env.OPERATOR_PASSWORD) };
+});
+
+function sphereSrc(slug: string, updatedAt: string) {
+  return `/api/media/${slug}?kind=full&v=${encodeURIComponent(updatedAt)}`;
 }
 
 export const getBoard = createServerFn({ method: "GET" }).handler(async () => {
@@ -260,25 +217,21 @@ export const getBoard = createServerFn({ method: "GET" }).handler(async () => {
     try {
       const remote = await import("./blob-board.server");
       const board = await remote.remoteBoard();
-      const captures = withSample(
-        board.captures.map((capture) => publicCard(capture)),
-        board.showSample !== false,
-      );
       return {
-        captures,
+        captures: visibleOnly(board.captures.map((capture) => publicCard(capture))),
         briefing: board.briefing ? cleanBriefing(board.briefing) : defaultBriefing,
       };
     } catch (error) {
       console.error(error);
-      return { captures: [staticCapture], briefing: defaultBriefing };
+      return { captures: [], briefing: defaultBriefing };
     }
   }
   try {
-    const [stored, briefing, showSample] = await Promise.all([listRows(), readBriefing(), readShowSample()]);
-    return { captures: withSample(stored, showSample), briefing };
+    const [stored, briefing] = await Promise.all([listRows(), readBriefing()]);
+    return { captures: visibleOnly(stored), briefing };
   } catch (error) {
     console.error(error);
-    return { captures: [staticCapture], briefing: defaultBriefing };
+    return { captures: [], briefing: defaultBriefing };
   }
 });
 
@@ -295,17 +248,23 @@ export const getCapture = createServerFn({ method: "GET" })
         const remote = await import("./blob-board.server");
         const board = await remote.remoteBoard();
         const found = board.captures.find((item) => item.slug === slug);
-        if (found) {
-          if (found.visible === false) return null;
-          return publicCard(found);
+        if (!found || found.visible === false) return null;
+        let src = sphereSrc(found.slug, found.updatedAt);
+        if (found.imagePath) {
+          try {
+            src = await remote.remoteReadUrl(found.imagePath);
+          } catch (error) {
+            console.error(error);
+          }
         }
+        return { ...publicCard(found), src };
       } catch (error) {
         console.error(error);
       }
-      return slug === staticCapture.slug ? staticCapture : null;
+      return null;
     }
     try {
-      await seedSample();
+      await dropSeededSample();
       const sql = await getSql();
       const rows = await sql<CaptureCard>`
         select slug, name, category, brief, updated_at::text as "updatedAt", visible
@@ -313,11 +272,11 @@ export const getCapture = createServerFn({ method: "GET" })
         where slug = ${slug}
       `;
       const found = rows[0];
-      if (found && found.visible === false) return null;
-      return found ?? (slug === staticCapture.slug ? staticCapture : null);
+      if (!found || found.visible === false) return null;
+      return { ...found, src: sphereSrc(found.slug, found.updatedAt) };
     } catch (error) {
       console.error(error);
-      return slug === staticCapture.slug ? staticCapture : null;
+      return null;
     }
   });
 
@@ -329,9 +288,8 @@ export const adminBoard = createServerFn({ method: "GET" })
       const board = await remote.remoteBoard();
       const captures = board.captures.map((capture) => publicCard(capture));
       const briefing = board.briefing ? cleanBriefing(board.briefing) : defaultBriefing;
-      const listed = adminCards(captures, board.showSample !== false);
       if (process.env.OPERATOR_PASSWORD) {
-        return { isOperator: true, operatorCount: 1, captures: listed, briefing };
+        return { isOperator: true, operatorCount: 1, captures, briefing };
       }
       const sql = await getSql();
       const operators = await sql<{ n: number }>`select count(*)::int as n from operators`;
@@ -341,7 +299,7 @@ export const adminBoard = createServerFn({ method: "GET" })
       return {
         isOperator: mine.length > 0,
         operatorCount: Number(operators[0]?.n ?? 0),
-        captures: listed,
+        captures,
         briefing,
       };
     }
@@ -352,11 +310,10 @@ export const adminBoard = createServerFn({ method: "GET" })
     `;
     const captures = await listRows();
     const briefing = await readBriefing();
-    const showSample = await readShowSample();
     return {
       isOperator: mine.length > 0,
       operatorCount: Number(operators[0]?.n ?? 0),
-      captures: adminCards(captures, showSample),
+      captures,
       briefing,
     };
   });
@@ -441,21 +398,48 @@ type CaptureInput = {
   name: string;
   category: string;
   brief: string;
-  image: string;
-  thumb: string;
   mime: string;
+  image?: string;
+  thumb?: string;
+  imagePath?: string;
+  thumbPath?: string;
+  bytes?: number;
+  width?: number;
+  height?: number;
 };
+
+function cleanPath(value: unknown) {
+  if (typeof value !== "string" || !value.startsWith("captures/") || value.includes("..") || value.length > 240) {
+    throw new Error("That panorama was not stored.");
+  }
+  return value;
+}
+
+function cleanCount(value: unknown, max: number) {
+  const n = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isFinite(n) || n < 1 || n > max) return undefined;
+  return Math.round(n);
+}
 
 function readCaptureInput(input: CaptureInput): CaptureInput {
   const mime = typeof input?.mime === "string" && input.mime.startsWith("image/") ? input.mime.slice(0, 80) : "image/jpeg";
-  return {
+  const next: CaptureInput = {
     name: cleanText(input?.name, 80, "Name"),
     category: cleanText(input?.category, 40, "Category"),
     brief: cleanBrief(input?.brief),
-    image: cleanImage(input?.image, "Panorama"),
-    thumb: cleanImage(input?.thumb, "Preview"),
     mime,
+    bytes: cleanCount(input?.bytes, 48 * 1024 * 1024),
+    width: cleanCount(input?.width, 32768),
+    height: cleanCount(input?.height, 32768),
   };
+  if (input?.imagePath || input?.thumbPath) {
+    next.imagePath = cleanPath(input.imagePath);
+    next.thumbPath = cleanPath(input.thumbPath);
+    return next;
+  }
+  next.image = cleanImage(input?.image, "Panorama");
+  next.thumb = cleanImage(input?.thumb, "Preview");
+  return next;
 }
 
 export const publishCapture = createServerFn({ method: "POST" })
@@ -479,10 +463,16 @@ export const publishCapture = createServerFn({ method: "POST" })
         visible: true,
         image: data.image,
         thumb: data.thumb,
+        imagePath: data.imagePath,
+        thumbPath: data.thumbPath,
+        bytes: data.bytes,
+        width: data.width,
+        height: data.height,
         updatedAt: new Date().toISOString(),
       });
       return { slug };
     }
+    if (!data.image || !data.thumb) throw new Error("That panorama was not stored.");
     const sql = await requireOperator(context.userId);
     const slug = await uniqueSlug(slugify(data.name));
     await sql`
@@ -508,7 +498,12 @@ type UpdateInput = {
   brief: string;
   image?: string;
   thumb?: string;
+  imagePath?: string;
+  thumbPath?: string;
   mime?: string;
+  bytes?: number;
+  width?: number;
+  height?: number;
 };
 
 export const updateCapture = createServerFn({ method: "POST" })
@@ -522,8 +517,16 @@ export const updateCapture = createServerFn({ method: "POST" })
       name: cleanText(input.name, 80, "Name"),
       category: cleanText(input.category, 40, "Category"),
       brief: cleanBrief(input.brief),
+      bytes: cleanCount(input.bytes, 48 * 1024 * 1024),
+      width: cleanCount(input.width, 32768),
+      height: cleanCount(input.height, 32768),
     };
-    if (input.image || input.thumb) {
+    if (input.imagePath || input.thumbPath) {
+      next.imagePath = cleanPath(input.imagePath);
+      next.thumbPath = cleanPath(input.thumbPath);
+      next.mime =
+        typeof input.mime === "string" && input.mime.startsWith("image/") ? input.mime.slice(0, 80) : "image/jpeg";
+    } else if (input.image || input.thumb) {
       next.image = cleanImage(input.image, "Panorama");
       next.thumb = cleanImage(input.thumb, "Preview");
       next.mime =
@@ -533,6 +536,7 @@ export const updateCapture = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }) => {
     await assertMayEdit(context.userId);
+    const replacing = Boolean((data.imagePath && data.thumbPath) || (data.image && data.thumb));
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const remote = await import("./blob-board.server");
       await remote.remoteUpdate(
@@ -542,11 +546,16 @@ export const updateCapture = createServerFn({ method: "POST" })
           category: data.category,
           brief: data.brief,
           mime: data.mime,
-          image: data.image ?? "",
-          thumb: data.thumb ?? "",
+          image: data.image,
+          thumb: data.thumb,
+          imagePath: data.imagePath,
+          thumbPath: data.thumbPath,
+          bytes: data.bytes,
+          width: data.width,
+          height: data.height,
           updatedAt: new Date().toISOString(),
         },
-        Boolean(data.image && data.thumb),
+        replacing,
       );
       return { slug: data.slug };
     }

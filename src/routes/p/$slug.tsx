@@ -44,14 +44,7 @@ function CapturePage() {
         <p className="sp-note">{capture.category}</p>
       </div>
       <div className="sp-pano-frame">
-        <PanoViewer
-          src={
-            capture.updatedAt === "static"
-              ? "/panoramas/basalt-reach.jpg"
-              : `/api/media/${capture.slug}?kind=full&v=${encodeURIComponent(capture.updatedAt)}`
-          }
-          label={`${capture.name} spherical capture`}
-        />
+        <PanoViewer src={capture.src ?? `/api/media/${capture.slug}?kind=full&v=${encodeURIComponent(capture.updatedAt)}`} label={`${capture.name} spherical capture`} />
       </div>
       {capture.brief ? <p className="sp-brief">{capture.brief}</p> : null}
       <p className="sp-note">Answers are pinpointed on the map on the CTF site, not here.</p>

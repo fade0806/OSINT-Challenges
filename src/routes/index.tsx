@@ -35,7 +35,7 @@ function Home() {
         <p className="sp-empty">No captures on the board yet.</p>
       ) : (
         categories.map((category) => (
-          <section key={category}>
+          <section key={category} className="sp-board-section">
             <h2 className="sp-category-title">{category}</h2>
             <div className="sp-capture-grid">
               {captures
@@ -44,11 +44,7 @@ function Home() {
                   <Link key={capture.slug} to="/p/$slug" params={{ slug: capture.slug }} className="sp-capture-card">
                     <img
                       className="sp-capture-thumb"
-                      src={
-                        capture.updatedAt === "static"
-                          ? "/panoramas/basalt-reach-thumb.jpg"
-                          : `/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`
-                      }
+                      src={`/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`}
                       alt=""
                       loading="lazy"
                       decoding="async"

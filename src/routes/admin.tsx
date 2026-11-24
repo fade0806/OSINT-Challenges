@@ -17,7 +17,8 @@ import {
   type Briefing,
   type CaptureCard,
 } from "@/lib/captures.functions";
-import { prepareCapture } from "@/lib/prepare-capture";
+import { inspectCapture } from "@/lib/prepare-capture";
+import { storePanorama } from "@/lib/store-panorama";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -28,21 +29,32 @@ type Draft = {
   name: string;
   category: string;
   brief: string;
-  image: string;
   thumb: string;
   mime: string;
   wide: boolean;
+  bytes: number;
+  width: number;
+  height: number;
 };
 
 const emptyDraft = (): Draft => ({
   name: "",
   category: "GEOINT",
   brief: "",
-  image: "",
   thumb: "",
   mime: "image/jpeg",
   wide: true,
+  bytes: 0,
+  width: 0,
+  height: 0,
 });
+
+function formatSize(bytes: number) {
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 10) return `${mb.toFixed(1)} MB`;
+  if (mb >= 0.1) return `${mb.toFixed(2)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 function AdminPage() {
   const { user, isPending } = useCurrentUserState();
@@ -59,6 +71,7 @@ function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState("");
+  const [progress, setProgress] = useState("");
 
   async function refresh() {
     const next = await adminBoard();
@@ -157,13 +170,13 @@ function AdminPage() {
     }
   }
 
-  async function onFile(file: File | undefined, apply: (next: Pick<Draft, "image" | "thumb" | "wide">) => void) {
+  async function onFile(file: File | undefined) {
     if (!file) return;
     setError("");
     setBusy(true);
     try {
-      const prepared = await prepareCapture(file);
-      apply(prepared);
+      const prepared = await inspectCapture(file);
+      setDraft((current) => ({ ...current, ...prepared }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read that image.");
     } finally {
@@ -187,7 +200,8 @@ function AdminPage() {
     try {
       let last = "";
       for (const file of files) {
-        const prepared = await prepareCapture(file);
+        setProgress(file.name);
+        const prepared = await storePanorama(file, (percent) => setProgress(`${file.name} · ${percent}%`));
         const fromFile = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim().slice(0, 80);
         const name = files.length === 1 ? draft.name.trim() : fromFile || draft.name.trim();
         if (!name) throw new Error("Each file needs a name.");
@@ -196,9 +210,14 @@ function AdminPage() {
             name,
             category: draft.category,
             brief: draft.brief,
+            mime: prepared.mime,
             image: prepared.image,
             thumb: prepared.thumb,
-            mime: prepared.mime,
+            imagePath: prepared.imagePath,
+            thumbPath: prepared.thumbPath,
+            bytes: prepared.bytes,
+            width: prepared.width,
+            height: prepared.height,
           },
         });
         last = created.slug;
@@ -211,6 +230,7 @@ function AdminPage() {
       setError(err instanceof Error ? err.message : "Could not publish.");
     } finally {
       setBusy(false);
+      setProgress("");
     }
   }
 
@@ -286,15 +306,15 @@ function AdminPage() {
                   const next = [...(event.target.files ?? [])];
                   setFiles(next);
                   const first = next[0];
-                  if (first) void onFile(first, (prepared) => setDraft((current) => ({ ...current, ...prepared })));
+                  if (first) void onFile(first);
                 }}
               />
               <span>
                 {files.length > 1
-                  ? `${files.length} panoramas ready. Publishing adds them. Nothing already on the board is removed.`
-                  : draft.thumb
-                    ? "Panorama ready at its original size. Choose more files to add them too."
-                    : "Choose one or more equirectangular images"}
+                  ? `${files.length} panoramas. Each original is added. Nothing already on the board is removed.`
+                  : draft.bytes
+                    ? `Original kept · ${formatSize(draft.bytes)} · ${draft.width}×${draft.height}. Not resized.`
+                    : "Choose one or more equirectangular images, up to 48 MB each"}
               </span>
             </label>
             {draft.thumb ? (
@@ -304,7 +324,7 @@ function AdminPage() {
               <p className="sp-note">This frame is not 2:1. It will still open in the sphere, but the horizon may warp.</p>
             ) : null}
             <button className="sp-button sp-button-solid" type="submit" disabled={busy}>
-              {busy ? "Working…" : "Publish sphere"}
+              {busy ? progress || "Working…" : "Publish sphere"}
             </button>
             {notice ? (
               <p className="sp-note">
@@ -318,28 +338,9 @@ function AdminPage() {
           <section className="sp-admin-list">
             <h2 className="sp-category-title">On the board</h2>
             {board.captures.length === 0 ? <p className="sp-note">No captures yet.</p> : null}
-            {board.captures.map((capture) =>
-              capture.sample ? (
-                <form key={capture.slug} className="sp-admin-panel">
-                  <h3>{capture.name}</h3>
-                  <p>This starter sphere stays on the board until you hide it. New uploads are added beside it.</p>
-                  <button
-                    className="sp-button"
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      void setCaptureShown({
-                        data: { slug: capture.slug, visible: !capture.visible, sample: true },
-                      }).then(() => refresh())
-                    }
-                  >
-                    {capture.visible ? "Shown to players — hide" : "Hidden — show to players"}
-                  </button>
-                </form>
-              ) : (
-                <CaptureEditor key={capture.slug} capture={capture} onChanged={refresh} onError={setError} />
-              ),
-            )}
+            {board.captures.map((capture) => (
+              <CaptureEditor key={capture.slug} capture={capture} onChanged={refresh} onError={setError} />
+            ))}
           </section>
         </>
       )}
@@ -451,8 +452,14 @@ function CaptureEditor({
   const [brief, setBrief] = useState(capture.brief);
   const [image, setImage] = useState("");
   const [thumb, setThumb] = useState("");
+  const [imagePath, setImagePath] = useState("");
+  const [thumbPath, setThumbPath] = useState("");
   const [mime, setMime] = useState("image/jpeg");
+  const [bytes, setBytes] = useState(0);
+  const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState("");
 
   async function onSave(event: FormEvent) {
     event.preventDefault();
@@ -465,16 +472,23 @@ function CaptureEditor({
           name,
           category,
           brief,
-          ...(image && thumb ? { image, thumb, mime } : {}),
+          ...(imagePath
+            ? { imagePath, thumbPath, mime, bytes, width, height }
+            : image && thumb
+              ? { image, thumb, mime }
+              : {}),
         },
       });
       setImage("");
       setThumb("");
+      setImagePath("");
+      setThumbPath("");
       await onChanged();
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not save.");
     } finally {
       setBusy(false);
+      setProgress("");
     }
   }
 
@@ -504,6 +518,13 @@ function CaptureEditor({
           <Link to="/p/$slug" params={{ slug: capture.slug }} className="sp-back">
             Open sphere
           </Link>
+          <p className="sp-note">
+            {bytes
+              ? `Replacement original · ${formatSize(bytes)} · ${width}×${height}. Not resized.`
+              : capture.bytes
+                ? `Stored original · ${formatSize(capture.bytes)}${capture.width ? ` · ${capture.width}×${capture.height}` : ""}. Not resized.`
+                : "Remove this one and upload the original file again if the sphere looks soft."}
+          </p>
         </div>
       </div>
       <label className="sp-field">
@@ -526,23 +547,30 @@ function CaptureEditor({
             const file = event.target.files?.[0];
             if (!file) return;
             setBusy(true);
+            setProgress(file.name);
             try {
-              const prepared = await prepareCapture(file);
-              setImage(prepared.image);
+              const prepared = await storePanorama(file, (percent) => setProgress(`${file.name} · ${percent}%`));
+              setImage(prepared.image ?? "");
               setThumb(prepared.thumb);
+              setImagePath(prepared.imagePath ?? "");
+              setThumbPath(prepared.thumbPath ?? "");
               setMime(prepared.mime);
+              setBytes(prepared.bytes);
+              setWidth(prepared.width);
+              setHeight(prepared.height);
             } catch (err) {
               onError(err instanceof Error ? err.message : "Could not read that image.");
             } finally {
               setBusy(false);
+              setProgress("");
             }
           }}
         />
-        <span>{thumb ? "Replacement ready" : "Replace the panorama"}</span>
+        <span>{progress ? progress : thumb ? "Replacement ready. Save to swap it in." : "Replace the panorama"}</span>
       </label>
       <div className="sp-admin-actions">
         <button className="sp-button sp-button-solid" type="submit" disabled={busy}>
-          {busy ? "Working…" : "Save"}
+          {busy ? progress || "Working…" : "Save"}
         </button>
         <button
           className="sp-button"

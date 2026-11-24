@@ -23,6 +23,7 @@ export function PanoViewer({ src, label }: Props) {
       viewer = window.pannellum.viewer(host.current, {
         type: "equirectangular",
         panorama: src,
+        crossOrigin: "anonymous",
         autoLoad: true,
         compass: true,
         showZoomCtrl: true,

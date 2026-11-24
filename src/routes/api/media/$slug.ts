@@ -14,6 +14,15 @@ export const Route = createFileRoute("/api/media/$slug")({
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           try {
             const remote = await import("@/lib/blob-board.server");
+            if (full) {
+              const board = await remote.remoteBoard();
+              const capture = board.captures.find((item) => item.slug === slug);
+              if (!capture || capture.visible === false) return new Response("Not found", { status: 404 });
+              if (capture.imagePath) {
+                const signed = await remote.remoteReadUrl(capture.imagePath);
+                return Response.redirect(signed, 302);
+              }
+            }
             const media = await remote.remoteImage(slug, full);
             if (media) {
               return new Response(media.body, {
@@ -48,22 +57,6 @@ export const Route = createFileRoute("/api/media/$slug")({
           }
         } catch (error) {
           console.error(error);
-        }
-        if (slug === "basalt-reach") {
-          try {
-            const { readFile } = await import("node:fs/promises");
-            const { join } = await import("node:path");
-            const name = full ? "basalt-reach.jpg" : "basalt-reach-thumb.jpg";
-            const file = await readFile(join(process.cwd(), "public/panoramas", name));
-            return new Response(file, {
-              headers: {
-                "content-type": "image/jpeg",
-                "cache-control": "public, max-age=86400",
-              },
-            });
-          } catch {
-            return new Response("Not found", { status: 404 });
-          }
         }
         return new Response("Not found", { status: 404 });
       },

@@ -1,4 +1,4 @@
-import { get, put } from "@vercel/blob";
+import { del, get, issueSignedToken, presignUrl, put } from "@vercel/blob";
 
 export type RemoteCapture = {
   slug: string;
@@ -12,6 +12,9 @@ export type RemoteCapture = {
   thumb?: string;
   imagePath?: string;
   thumbPath?: string;
+  bytes?: number;
+  width?: number;
+  height?: number;
 };
 
 export type RemoteBoard = {
@@ -84,8 +87,32 @@ async function writeBoard(board: RemoteBoard) {
   });
 }
 
+function dropPaths(paths: Array<string | undefined>) {
+  const stale = paths.filter((path): path is string => Boolean(path));
+  if (!stale.length) return;
+  void del(stale).catch((error: unknown) => {
+    console.error(error);
+  });
+}
+
 export async function remoteBoard() {
   return readBoard();
+}
+
+export async function remoteReadUrl(pathname: string) {
+  const validUntil = Date.now() + 60 * 60 * 1000;
+  const token = await issueSignedToken({
+    pathname,
+    operations: ["get"],
+    validUntil,
+  });
+  const signed = await presignUrl(token, {
+    access: "private",
+    operation: "get",
+    pathname,
+    validUntil,
+  });
+  return signed.presignedUrl;
 }
 
 export async function remoteSaveBriefing(briefing: unknown) {
@@ -107,22 +134,32 @@ export async function remoteUpdate(capture: RemoteCapture, replaceImage: boolean
   const index = board.captures.findIndex((item) => item.slug === capture.slug);
   if (index < 0) throw new Error("That capture is gone.");
   const current = board.captures[index];
-  board.captures[index] = replaceImage
-    ? {
-        ...current,
-        ...capture,
-        visible: current.visible !== false,
-        imagePath: undefined,
-        thumbPath: undefined,
-      }
-    : {
-        ...current,
-        name: capture.name,
-        category: capture.category,
-        brief: capture.brief,
-        updatedAt: capture.updatedAt,
-      };
+  if (!replaceImage) {
+    board.captures[index] = {
+      ...current,
+      name: capture.name,
+      category: capture.category,
+      brief: capture.brief,
+      updatedAt: capture.updatedAt,
+    };
+    await writeBoard(board);
+    return;
+  }
+  const next: RemoteCapture = {
+    ...current,
+    ...capture,
+    visible: current.visible !== false,
+  };
+  if (capture.imagePath) {
+    delete next.image;
+    delete next.thumb;
+  } else {
+    next.imagePath = undefined;
+    next.thumbPath = undefined;
+  }
+  board.captures[index] = next;
   await writeBoard(board);
+  dropPaths([current.imagePath, current.thumbPath].filter((path) => path && path !== next.imagePath && path !== next.thumbPath));
 }
 
 export async function remoteSetVisible(slug: string, visible: boolean) {
@@ -143,8 +180,10 @@ export async function remoteSetSample(showSample: boolean) {
 
 export async function remoteRemove(slug: string) {
   const board = await readBoard();
+  const gone = board.captures.find((item) => item.slug === slug);
   board.captures = board.captures.filter((item) => item.slug !== slug);
   await writeBoard(board);
+  if (gone) dropPaths([gone.imagePath, gone.thumbPath]);
 }
 
 export async function remoteImage(slug: string, full: boolean) {
