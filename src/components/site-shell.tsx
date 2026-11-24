@@ -25,13 +25,10 @@ function OperatorLinks() {
 
   return (
     <>
-      <Link to="/admin" className="sp-nav-box">
-        Admin
-      </Link>
       {open ? (
         <button
           type="button"
-          className="sp-nav-box"
+          className="sp-nav-box sp-nav-box-solid"
           onClick={() => {
             void lockBoard().finally(() => {
               window.location.assign("/admin");
@@ -41,6 +38,9 @@ function OperatorLinks() {
           Logout
         </button>
       ) : null}
+      <Link to="/admin" className="sp-nav-box">
+        Admin
+      </Link>
     </>
   );
 }

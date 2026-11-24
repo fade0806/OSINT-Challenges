@@ -179,6 +179,12 @@
   border-color: var(--color-red);
 }
 
+.sp-nav-box-solid {
+  color: var(--color-fg-bright);
+  background: var(--color-red);
+  border-color: var(--color-red);
+}
+
 .sp-admin-link {
   color: var(--color-red-soft);
   font-size: 12px;
