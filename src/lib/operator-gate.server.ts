@@ -67,6 +67,16 @@ export function operatorCookieOk() {
   return readOperatorCookie(value, secret());
 }
 
+export function lockOperator() {
+  const secure = secureCookie();
+  const name = cookieName(secure);
+  const secureFlag = secure ? "; Secure" : "";
+  setResponseHeader(
+    "set-cookie",
+    `${name}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secureFlag}`,
+  );
+}
+
 export function unlockOperator(password: string) {
   const passphrase = secret();
   if (!passwordMatches(password, passphrase)) return false;

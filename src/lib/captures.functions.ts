@@ -234,6 +234,14 @@ export const unlockBoard = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+export const lockBoard = createServerFn({ method: "POST" }).handler(async () => {
+  const { assertSameSiteRequest } = await import("./auth/isolation.server");
+  const { lockOperator } = await import("./operator-gate.server");
+  assertSameSiteRequest();
+  lockOperator();
+  return { ok: true as const };
+});
+
 export const uploadMode = createServerFn({ method: "GET" }).handler(async () => {
   return { direct: Boolean(process.env.BLOB_READ_WRITE_TOKEN && process.env.OPERATOR_PASSWORD) };
 });

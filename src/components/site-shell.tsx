@@ -1,8 +1,49 @@
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { UserButton } from "@/lib/auth/gates";
+import { gateStatus, lockBoard } from "@/lib/captures.functions";
 
 const year = new Date().getFullYear();
+
+function OperatorLinks() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    gateStatus()
+      .then((status) => {
+        if (!cancelled) setOpen(status.unlocked);
+      })
+      .catch(() => {
+        if (!cancelled) setOpen(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <>
+      <Link to="/admin" className="sp-nav-box">
+        Admin
+      </Link>
+      {open ? (
+        <button
+          type="button"
+          className="sp-nav-box"
+          onClick={() => {
+            void lockBoard().finally(() => {
+              window.location.assign("/admin");
+            });
+          }}
+        >
+          Logout
+        </button>
+      ) : null}
+    </>
+  );
+}
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -39,9 +80,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </Link>
           </div>
           <div className="sp-navbar-right">
-            <Link to="/admin" className="sp-admin-link">
-              Admin
-            </Link>
+            <OperatorLinks />
             <div className="sp-system-status">
               <span />
               SYS_STATUS: ONLINE
