@@ -37,10 +37,6 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 <span className="sp-brand-subtitle">Field board // GEOINT</span>
               </span>
             </Link>
-            <nav className="sp-primary-nav">
-              <Link to="/">Captures</Link>
-              <a href="#briefing">Briefing</a>
-            </nav>
           </div>
           <div className="sp-navbar-right">
             <Link to="/admin" className="sp-admin-link">

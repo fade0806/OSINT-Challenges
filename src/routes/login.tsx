@@ -48,7 +48,7 @@ function Login() {
     <SiteShell>
       <h1 className="sp-page-title">Operator</h1>
       <p className="sp-lede">
-        The board is public. Publishing a capture requires a signed-in operator.
+        The board is public. Publishing a challenge requires a signed-in operator.
       </p>
       <div className="sp-auth-card">
         {authEnabled ? (

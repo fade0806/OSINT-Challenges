@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { GlassTabs } from "@/components/glass-tabs";
 import { SiteShell } from "@/components/site-shell";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -72,6 +73,7 @@ function AdminPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState("");
   const [progress, setProgress] = useState("");
+  const [panel, setPanel] = useState("challenges");
 
   async function refresh() {
     const next = await adminBoard();
@@ -120,7 +122,7 @@ function AdminPage() {
     return (
       <SiteShell>
         <h1 className="sp-page-title">Operator</h1>
-        <p className="sp-lede">The board is public. Publishing a capture requires the operator passphrase.</p>
+        <p className="sp-lede">The board is public. Publishing a challenge requires the operator passphrase.</p>
         <form
           className="sp-auth-card"
           onSubmit={async (event) => {
@@ -191,7 +193,7 @@ function AdminPage() {
       return;
     }
     if (files.length === 1 && !draft.name.trim()) {
-      setError("Name the capture, or add several files and each filename is used.");
+      setError("Name the challenge, or add several files and each filename is used.");
       return;
     }
     setError("");
@@ -225,6 +227,7 @@ function AdminPage() {
       setDraft(emptyDraft());
       setFiles([]);
       setNotice(last);
+      setPanel("challenges");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not publish.");
@@ -238,7 +241,8 @@ function AdminPage() {
     <SiteShell>
       <h1 className="sp-page-title">Operator</h1>
       <p className="sp-lede">
-        Upload an equirectangular image, name it, and write the brief. It appears on the board as a sphere immediately.
+        Upload an equirectangular image, name the challenge, and write the brief. It appears on the board as a sphere
+        immediately.
       </p>
       {error ? <p className="sp-form-error sp-form-error-block">{error}</p> : null}
       {!board ? (
@@ -247,7 +251,7 @@ function AdminPage() {
         <div className="sp-auth-card">
           <p>
             No operator holds this board yet. The first account to claim it is the only one that can publish or edit
-            captures. Do that before you share the link.
+            challenges. Do that before you share the link.
           </p>
           <button type="button" className="sp-button sp-button-solid" disabled={busy} onClick={onClaim}>
             Claim this board
@@ -255,27 +259,51 @@ function AdminPage() {
         </div>
       ) : !board.isOperator ? (
         <div className="sp-auth-card">
-          <p>This account is not the board operator. Captures stay visible, but only the operator can change them.</p>
+          <p>This account is not the board operator. Challenges stay visible, but only the operator can change them.</p>
           <Link to="/" className="sp-back">
-            Return to captures
+            Return to challenges
           </Link>
         </div>
       ) : (
         <>
-          <BriefingEditor
-            briefing={board.briefing ?? defaultBriefing}
-            onSaved={(next) => setBoard((current) => (current ? { ...current, briefing: next } : current))}
-            onError={setError}
+        <section className="sp-stage">
+          <GlassTabs
+            label="Operator"
+            value={panel}
+            onChange={setPanel}
+            tabs={[
+              { id: "challenges", label: "Challenges" },
+              { id: "briefing", label: "Briefing" },
+              { id: "new", label: "New" },
+            ]}
           />
+          <div
+            id="panel-Operator-briefing"
+            role="tabpanel"
+            aria-labelledby="tab-Operator-briefing"
+            className={panel === "briefing" ? "sp-pane is-on" : "sp-pane"}
+          >
+            <BriefingEditor
+              briefing={board.briefing ?? defaultBriefing}
+              onSaved={(next) => setBoard((current) => (current ? { ...current, briefing: next } : current))}
+              onError={setError}
+            />
+          </div>
+          <div
+            id="panel-Operator-new"
+            role="tabpanel"
+            aria-labelledby="tab-Operator-new"
+            className={panel === "new" ? "sp-pane is-on" : "sp-pane"}
+          >
           <form className="sp-admin-panel" onSubmit={onPublish}>
-            <h2>New capture</h2>
+            <h2>New challenge</h2>
             <label className="sp-field">
               Name
               <input
                 maxLength={80}
                 value={draft.name}
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                placeholder={files.length > 1 ? "Each file uses its own name" : "Capture name"}
+                placeholder={files.length > 1 ? "Each file uses its own name" : "Challenge name"}
               />
             </label>
             <label className="sp-field">
@@ -335,13 +363,21 @@ function AdminPage() {
               </p>
             ) : null}
           </form>
+          </div>
+          <div
+            id="panel-Operator-challenges"
+            role="tabpanel"
+            aria-labelledby="tab-Operator-challenges"
+            className={panel === "challenges" ? "sp-pane is-on" : "sp-pane"}
+          >
           <section className="sp-admin-list">
-            <h2 className="sp-category-title">On the board</h2>
-            {board.captures.length === 0 ? <p className="sp-note">No captures yet.</p> : null}
+            {board.captures.length === 0 ? <p className="sp-note">No challenges yet.</p> : null}
             {board.captures.map((capture) => (
               <CaptureEditor key={capture.slug} capture={capture} onChanged={refresh} onError={setError} />
             ))}
           </section>
+          </div>
+        </section>
         </>
       )}
     </SiteShell>
@@ -378,7 +414,7 @@ function BriefingEditor({
   return (
     <form className="sp-admin-panel" onSubmit={onSave}>
       <h2>Briefing</h2>
-      <p>These three notes and the intro are what visitors read. Captures themselves are published below.</p>
+      <p>The intro, the three notes, and the footnote are what visitors read on the Briefing tab.</p>
       <label className="sp-field">
         Intro
         <textarea

@@ -29,13 +29,13 @@ export type Briefing = {
 };
 
 export const defaultBriefing: Briefing = {
-  lede: "Spherical imagery for field-analysis challenges. Open a capture, look around, then submit the answer on the CTF board by pinning the location on the map.",
+  lede: "Spherical imagery for field-analysis challenges. Open a challenge, look around, then submit the answer on the CTF board by pinning the location on the map.",
   note: "Answers are pinpointed on the map on the CTF site, not here.",
   steps: [
     {
       kicker: "01",
       title: "Open",
-      body: "Each card is one equirectangular capture. Nothing on this page is the flag.",
+      body: "Each card is one equirectangular challenge. Nothing on this page is the flag.",
     },
     {
       kicker: "02",

@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { GlassTabs } from "@/components/glass-tabs";
 import { SiteShell } from "@/components/site-shell";
 import { getBoard } from "@/lib/captures.functions";
 
@@ -12,6 +14,17 @@ export const Route = createFileRoute("/")({
 function Home() {
   const { captures, briefing } = Route.useLoaderData();
   const categories = [...new Set(captures.map((capture) => capture.category))];
+  const [tab, setTab] = useState("challenges");
+
+  useEffect(() => {
+    if (window.location.hash === "#briefing") setTab("briefing");
+  }, []);
+
+  function select(id: string) {
+    setTab(id);
+    const next = id === "briefing" ? "#briefing" : "#challenges";
+    window.history.replaceState(null, "", next);
+  }
 
   return (
     <SiteShell>
@@ -31,45 +44,68 @@ function Home() {
         <p className="sp-lede">{briefing.lede}</p>
       </section>
 
-      {captures.length === 0 ? (
-        <p className="sp-empty">No captures on the board yet.</p>
-      ) : (
-        categories.map((category) => (
-          <section key={category} className="sp-board-section">
-            <h2 className="sp-category-title">{category}</h2>
-            <div className="sp-capture-grid">
-              {captures
-                .filter((capture) => capture.category === category)
-                .map((capture) => (
-                  <Link key={capture.slug} to="/p/$slug" params={{ slug: capture.slug }} className="sp-capture-card">
-                    <img
-                      className="sp-capture-thumb"
-                      src={`/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <div className="sp-capture-meta">
-                      <h3>{capture.name}</h3>
-                    </div>
-                  </Link>
-                ))}
-            </div>
+      <section className="sp-stage">
+        <GlassTabs
+          label="Board"
+          value={tab}
+          onChange={select}
+          tabs={[
+            { id: "challenges", label: "Challenges" },
+            { id: "briefing", label: "Briefing" },
+          ]}
+        />
+        <div
+          id="panel-Board-challenges"
+          role="tabpanel"
+          aria-labelledby="tab-Board-challenges"
+          className={tab === "challenges" ? "sp-pane is-on" : "sp-pane"}
+        >
+          {captures.length === 0 ? (
+            <p className="sp-empty">No challenges on the board yet.</p>
+          ) : (
+            categories.map((category) => (
+              <section key={category} className="sp-board-section">
+                <h2 className="sp-category-title">{category}</h2>
+                <div className="sp-capture-grid">
+                  {captures
+                    .filter((capture) => capture.category === category)
+                    .map((capture) => (
+                      <Link key={capture.slug} to="/p/$slug" params={{ slug: capture.slug }} className="sp-capture-card">
+                        <img
+                          className="sp-capture-thumb"
+                          src={`/api/media/${capture.slug}?v=${encodeURIComponent(capture.updatedAt)}`}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <div className="sp-capture-meta">
+                          <h3>{capture.name}</h3>
+                        </div>
+                      </Link>
+                    ))}
+                </div>
+              </section>
+            ))
+          )}
+        </div>
+        <div
+          id="panel-Board-briefing"
+          role="tabpanel"
+          aria-labelledby="tab-Board-briefing"
+          className={tab === "briefing" ? "sp-pane is-on" : "sp-pane"}
+        >
+          <p className="sp-note">{briefing.note}</p>
+          <section className="sp-feature-grid" id="briefing">
+            {briefing.steps.map((step, index) => (
+              <article key={step.kicker} className="sp-feature-card" style={{ animationDelay: `${index * 140}ms` }}>
+                <span className="sp-kicker">{step.kicker}</span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+                <b />
+              </article>
+            ))}
           </section>
-        ))
-      )}
-
-      <p className="sp-note">{briefing.note}</p>
-
-      <section className="sp-feature-grid" id="briefing">
-        {briefing.steps.map((step, index) => (
-          <article key={step.kicker} className="sp-feature-card" style={{ animationDelay: `${index * 140}ms` }}>
-            <span className="sp-kicker">{step.kicker}</span>
-            <h3>{step.title}</h3>
-            <p>{step.body}</p>
-            <b />
-          </article>
-        ))}
+        </div>
       </section>
     </SiteShell>
   );

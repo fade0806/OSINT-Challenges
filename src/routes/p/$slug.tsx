@@ -10,7 +10,7 @@ export const Route = createFileRoute("/p/$slug")({
   head: ({ loaderData }) => ({
     meta: [
       {
-        title: loaderData ? `${loaderData.name} | SENTINALSPRIME` : "Missing capture | SENTINALSPRIME",
+        title: loaderData ? `${loaderData.name} | SENTINALSPRIME` : "Missing challenge | SENTINALSPRIME",
       },
     ],
   }),
@@ -23,9 +23,9 @@ function CapturePage() {
     return (
       <SiteShell>
         <div className="sp-missing">
-          <h1>Capture not on the board</h1>
+          <h1>Challenge not on the board</h1>
           <Link to="/" className="sp-back">
-            Return to captures
+            Return to challenges
           </Link>
         </div>
       </SiteShell>
@@ -37,7 +37,7 @@ function CapturePage() {
       <div className="sp-viewer-head">
         <div>
           <Link to="/" className="sp-back">
-            ← Captures
+            ← Challenges
           </Link>
           <h1>{capture.name}</h1>
         </div>
