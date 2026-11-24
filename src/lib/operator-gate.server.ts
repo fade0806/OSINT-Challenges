@@ -1,5 +1,5 @@
 import { getCookie, getRequest, setResponseHeader } from "@tanstack/react-start/server";
-import { clientAddress, cookieName, issueOperatorCookie, passwordMatches, readOperatorCookie } from "@/lib/operator-gate";
+import { clientAddress, issueOperatorCookie, operatorCookieHeader, passwordMatches, readOperatorCookie } from "@/lib/operator-gate";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
@@ -54,38 +54,37 @@ function secureCookie() {
   return Boolean(process.env.VERCEL);
 }
 
-export function operatorCookieOk() {
+function readNamedCookie(name: string) {
   const headers = requestHeaders();
   const raw = headers?.get("cookie") ?? "";
-  const name = cookieName(secureCookie());
   const fromHeader = raw
     .split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${name}=`))
     ?.slice(name.length + 1);
-  const value = fromHeader || getCookie(name);
+  return fromHeader || getCookie(name);
+}
+
+export function operatorCookieOk() {
+  const secure = secureCookie();
+  const host = readNamedCookie("__Host-sp_operator");
+  const plain = readNamedCookie("sp_operator");
+  const value = secure ? host || plain : plain || host;
   return readOperatorCookie(value, secret());
 }
 
 export function lockOperator() {
   const secure = secureCookie();
-  const name = cookieName(secure);
-  const secureFlag = secure ? "; Secure" : "";
-  setResponseHeader(
-    "set-cookie",
-    `${name}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secureFlag}`,
-  );
+  setResponseHeader("set-cookie", operatorCookieHeader("", secure, 0));
 }
 
 export function unlockOperator(password: string) {
   const passphrase = secret();
   if (!passwordMatches(password, passphrase)) return false;
   const secure = secureCookie();
-  const name = cookieName(secure);
-  const secureFlag = secure ? "; Secure" : "";
   setResponseHeader(
     "set-cookie",
-    `${name}=${issueOperatorCookie(passphrase)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${60 * 60 * 24 * 30}${secureFlag}`,
+    operatorCookieHeader(issueOperatorCookie(passphrase), secure, 60 * 60 * 24 * 30),
   );
   return true;
 }

@@ -1,25 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { UserButton } from "@/lib/auth/gates";
 import { gateStatus, lockBoard } from "@/lib/captures.functions";
+import { OPERATOR_SESSION_EVENT, publishOperatorSession } from "@/lib/operator-session";
 
 const year = new Date().getFullYear();
 
 function OperatorLinks() {
   const [open, setOpen] = useState(false);
+  const sessionStamp = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
+    const started = sessionStamp.current;
     gateStatus()
       .then((status) => {
-        if (!cancelled) setOpen(status.unlocked);
+        if (!cancelled && sessionStamp.current === started) setOpen(status.unlocked);
       })
       .catch(() => {
-        if (!cancelled) setOpen(false);
+        if (!cancelled && sessionStamp.current === started) setOpen(false);
       });
+    function onSession(event: Event) {
+      sessionStamp.current += 1;
+      const unlocked = event instanceof CustomEvent && event.detail?.unlocked === true;
+      setOpen(unlocked);
+    }
+    window.addEventListener(OPERATOR_SESSION_EVENT, onSession);
     return () => {
       cancelled = true;
+      window.removeEventListener(OPERATOR_SESSION_EVENT, onSession);
     };
   }, []);
 
@@ -30,9 +40,14 @@ function OperatorLinks() {
           type="button"
           className="sp-nav-box sp-nav-box-solid"
           onClick={() => {
-            void lockBoard().finally(() => {
-              window.location.assign("/admin");
-            });
+            void lockBoard()
+              .then(() => {
+                publishOperatorSession(false);
+                window.location.assign("/admin");
+              })
+              .catch(() => {
+                setOpen(true);
+              });
           }}
         >
           Logout

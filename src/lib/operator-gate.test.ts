@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   clientAddress,
   issueOperatorCookie,
+  operatorCookieHeader,
   passwordMatches,
   readOperatorCookie,
 } from "./operator-gate.ts";
@@ -25,6 +26,16 @@ test("an operator cookie expires and fails if it is edited", () => {
   const flipped = mac.endsWith("0") ? `${mac.slice(0, -1)}1` : `${mac.slice(0, -1)}0`;
   assert.equal(readOperatorCookie(`${exp}.${flipped}`, secret, now + 1000), false);
   assert.equal(readOperatorCookie("not-a-cookie", secret, now), false);
+});
+
+test("logout clears the operator cookie instead of issuing a new one", () => {
+  const header = operatorCookieHeader("", true, 0);
+  assert.match(header, /^__Host-sp_operator=;/);
+  assert.match(header, /Max-Age=0/);
+  assert.match(header, /HttpOnly/);
+  assert.match(header, /Secure/);
+  assert.equal(header.includes("Domain="), false);
+  assert.equal(readOperatorCookie("", secret), false);
 });
 
 test("the attempt limit uses the platform address, not a spoofed first hop", () => {

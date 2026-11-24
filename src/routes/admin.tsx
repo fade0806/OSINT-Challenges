@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { GlassTabs } from "@/components/glass-tabs";
 import { SiteShell } from "@/components/site-shell";
+import { publishOperatorSession } from "@/lib/operator-session";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
@@ -132,6 +133,7 @@ function AdminPage() {
             setBusy(true);
             try {
               const opened = await unlockBoard({ data: passphrase });
+              publishOperatorSession(true);
               setGate({ mode: "passphrase", unlocked: true });
               if (opened.board) setBoard(opened.board);
             } catch (err) {
