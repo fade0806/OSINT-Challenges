@@ -231,7 +231,13 @@ export const unlockBoard = createServerFn({ method: "POST" })
       throw new Error("That passphrase is wrong.");
     }
     noteOperatorSuccess();
-    return { ok: true as const };
+    let board = null;
+    try {
+      board = await loadOperatorBoard("operator");
+    } catch (error) {
+      console.error(error);
+    }
+    return { ok: true as const, board };
   });
 
 export const lockBoard = createServerFn({ method: "POST" }).handler(async () => {
@@ -320,29 +326,11 @@ export const getCapture = createServerFn({ method: "GET" })
     }
   });
 
-async function withThumbs(
-  captures: Array<{ thumbPath?: string } & Parameters<typeof publicCard>[0]>,
-  sign: (path: string) => Promise<string>,
-) {
-  return Promise.all(
-    captures.map(async (capture) => {
-      const card = publicCard(capture);
-      if (!capture.thumbPath) return card;
-      try {
-        card.thumbSrc = await sign(capture.thumbPath);
-      } catch (error) {
-        console.error(error);
-      }
-      return card;
-    }),
-  );
-}
-
 async function loadOperatorBoard(userId: string) {
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const remote = await import("./blob-board.server");
     const board = await remote.remoteBoard();
-    const captures = await withThumbs(board.captures, (path) => remote.remoteReadUrl(path));
+    const captures = board.captures.map((capture) => publicCard(capture));
     const briefing = shownBriefing(board.briefing);
     if (process.env.OPERATOR_PASSWORD) {
       return { isOperator: true, operatorCount: 1, captures, briefing };

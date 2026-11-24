@@ -3,12 +3,16 @@ import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 export const OPERATOR_MAX_AGE_SEC = 60 * 60 * 24 * 30;
 
 const SALT = "sentinalsprime-operator-v2";
+const STRETCH = { N: 16384, r: 8, p: 1 } as const;
+let knownSecret: { secret: string; key: Buffer } | null = null;
 
 export function passwordMatches(password: string, secret: string) {
   if (!password || !secret || password.length > 200 || secret.length > 200) return false;
-  const a = scryptSync(password, SALT, 32, { N: 16384, r: 8, p: 1 });
-  const b = scryptSync(secret, SALT, 32, { N: 16384, r: 8, p: 1 });
-  return timingSafeEqual(a, b);
+  if (!knownSecret || knownSecret.secret !== secret) {
+    knownSecret = { secret, key: scryptSync(secret, SALT, 32, STRETCH) };
+  }
+  const attempt = scryptSync(password, SALT, 32, STRETCH);
+  return timingSafeEqual(attempt, knownSecret.key);
 }
 
 export function issueOperatorCookie(secret: string, now = Date.now()) {

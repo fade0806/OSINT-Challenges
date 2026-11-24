@@ -97,7 +97,8 @@ function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (!gate || gate.mode !== "account" || !user) return;
+    if (!gate?.unlocked || board) return;
+    if (gate.mode === "account" && !user) return;
     let cancelled = false;
     adminBoard()
       .then((next) => {
@@ -109,7 +110,7 @@ function AdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, gate]);
+  }, [user, gate, board]);
 
   if (!gate || (gate.mode === "account" && isPending)) {
     return (
@@ -130,8 +131,9 @@ function AdminPage() {
             setError("");
             setBusy(true);
             try {
-              await unlockBoard({ data: passphrase });
+              const opened = await unlockBoard({ data: passphrase });
               setGate({ mode: "passphrase", unlocked: true });
+              if (opened.board) setBoard(opened.board);
             } catch (err) {
               setError(err instanceof Error ? err.message : "Could not unlock the console.");
             } finally {
