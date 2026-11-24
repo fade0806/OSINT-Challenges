@@ -1,5 +1,5 @@
 import { getCookie, getRequest, setResponseHeader } from "@tanstack/react-start/server";
-import { clientAddress, issueOperatorCookie, operatorCookieHeader, passwordMatches, readOperatorCookie } from "@/lib/operator-gate";
+import { clientAddress, clearedOperatorCookies, issueOperatorCookie, operatorCookieHeader, passwordMatches, readOperatorCookie } from "@/lib/operator-gate";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
@@ -86,13 +86,13 @@ export async function operatorCookieOk() {
 }
 
 export async function lockOperator() {
-  const sessionId = presentedSession();
-  const { closeOperatorSession } = await import("./operator-session.server");
-  await closeOperatorSession(sessionId);
-  setResponseHeader("set-cookie", [
-    operatorCookieHeader("", false, 0),
-    operatorCookieHeader("", true, 0),
-  ]);
+  try {
+    const { clearOperatorSessions } = await import("./operator-session.server");
+    await clearOperatorSessions();
+  } catch (error) {
+    console.error(error);
+  }
+  setResponseHeader("set-cookie", clearedOperatorCookies());
 }
 
 export async function unlockOperator(password: string) {

@@ -49,6 +49,19 @@ export async function closeOperatorSession(id: string | null) {
   await writeIds(revokeSession(await readIds(), id));
 }
 
+export async function clearOperatorSessions() {
+  let last: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await writeIds([]);
+      return;
+    } catch (error) {
+      last = error;
+    }
+  }
+  throw last;
+}
+
 export async function operatorSessionLive(id: string) {
   return (await readIds()).includes(id);
 }

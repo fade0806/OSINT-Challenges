@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  clearedOperatorCookies,
   clientAddress,
   issueOperatorCookie,
   newSessionId,
-  operatorCookieHeader,
   passwordMatches,
   readOperatorCookie,
   rememberSession,
@@ -44,13 +44,17 @@ test("logout revokes that session id and leaves a different login", () => {
   assert.deepEqual(ids, [second]);
 });
 
-test("logout clears the operator cookie instead of issuing a new one", () => {
-  const header = operatorCookieHeader("", true, 0);
-  assert.match(header, /^__Host-sp_operator=;/);
-  assert.match(header, /Max-Age=0/);
-  assert.match(header, /HttpOnly/);
-  assert.match(header, /Secure/);
-  assert.equal(header.includes("Domain="), false);
+test("logout clears every operator cookie name", () => {
+  const headers = clearedOperatorCookies();
+  assert.equal(headers.length, 3);
+  for (const header of headers) {
+    assert.match(header, /Max-Age=0/);
+    assert.match(header, /HttpOnly/);
+    assert.match(header, /SameSite=Strict/);
+  }
+  assert.match(headers[0], /^sp_operator=;/);
+  assert.match(headers[2], /^__Host-sp_operator=;/);
+  assert.match(headers[2], /Secure/);
   assert.equal(readOperatorCookie("", secret), null);
 });
 

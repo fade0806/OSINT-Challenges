@@ -59,6 +59,14 @@ export function operatorCookieHeader(value: string, secure: boolean, maxAge: num
   return `${cookieName(secure)}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secureFlag}`;
 }
 
+export function clearedOperatorCookies() {
+  return [
+    operatorCookieHeader("", false, 0),
+    "sp_operator=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0; Secure",
+    operatorCookieHeader("", true, 0),
+  ];
+}
+
 /** Prefer the address the platform sets. A client can prepend a fake X-Forwarded-For. */
 export function clientAddress(header: (name: string) => string | null) {
   const vercel = header("x-vercel-forwarded-for")?.split(",")[0]?.trim() ?? "";

@@ -1059,17 +1059,19 @@
   }
 
   .sp-navbar-inner {
+    flex-wrap: wrap;
     padding: 10px 12px;
     gap: 8px;
   }
 
-  .sp-navbar-left {
-    flex: 1 1 auto;
+  .sp-navbar-left,
+  .sp-navbar-right {
+    flex: 1 1 100%;
     min-width: 0;
   }
 
   .sp-navbar-right {
-    flex: none;
+    justify-content: flex-end;
     gap: 8px;
   }
 
