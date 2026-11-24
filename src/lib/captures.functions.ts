@@ -244,7 +244,7 @@ export const lockBoard = createServerFn({ method: "POST" }).handler(async () => 
   const { assertSameSiteRequest } = await import("./auth/isolation.server");
   const { lockOperator } = await import("./operator-gate.server");
   assertSameSiteRequest();
-  lockOperator();
+  await lockOperator();
   return { ok: true as const };
 });
 

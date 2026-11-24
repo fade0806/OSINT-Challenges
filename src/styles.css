@@ -1057,6 +1057,51 @@
   .sp-admin-card .sp-admin-actions {
     grid-template-columns: 1fr 1fr;
   }
+
+  .sp-navbar-inner {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .sp-navbar-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .sp-navbar-right {
+    flex: none;
+    gap: 8px;
+  }
+
+  .sp-brand {
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .sp-brand-copy {
+    min-width: 0;
+  }
+
+  .sp-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .sp-brand-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+
+  .sp-nav-box {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

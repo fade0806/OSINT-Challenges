@@ -89,7 +89,10 @@ export async function lockOperator() {
   const sessionId = presentedSession();
   const { closeOperatorSession } = await import("./operator-session.server");
   await closeOperatorSession(sessionId);
-  setResponseHeader("set-cookie", operatorCookieHeader("", secureCookie(), 0));
+  setResponseHeader("set-cookie", [
+    operatorCookieHeader("", false, 0),
+    operatorCookieHeader("", true, 0),
+  ]);
 }
 
 export async function unlockOperator(password: string) {

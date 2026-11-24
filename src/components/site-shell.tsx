@@ -9,6 +9,7 @@ const year = new Date().getFullYear();
 
 function OperatorLinks() {
   const [open, setOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const sessionStamp = useRef(0);
 
   useEffect(() => {
@@ -39,13 +40,17 @@ function OperatorLinks() {
         <button
           type="button"
           className="sp-nav-box sp-nav-box-solid"
+          disabled={leaving}
           onClick={() => {
+            if (leaving) return;
+            setLeaving(true);
             void lockBoard()
               .then(() => {
                 publishOperatorSession(false);
                 window.location.assign("/admin");
               })
               .catch(() => {
+                setLeaving(false);
                 setOpen(true);
               });
           }}
