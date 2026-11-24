@@ -57,7 +57,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
           <strong>Powered by SentinalsPrime CTF</strong>
           <span className="sp-footer-dot" />
         </div>
-        <p>Field board // GEOINT · {year}</p>
+        <p>NUST MCS Information Security © {year}</p>
       </footer>
     </>
   );
