@@ -199,8 +199,17 @@ export const gateStatus = createServerFn({ method: "GET" }).handler(async () => 
 export const unlockBoard = createServerFn({ method: "POST" })
   .validator((password: string) => (typeof password === "string" ? password : ""))
   .handler(async ({ data }) => {
-    const { unlockOperator } = await import("./operator-gate.server");
-    if (!unlockOperator(data)) throw new Error("That passphrase is wrong.");
+    const { assertSameSiteRequest } = await import("./auth/isolation.server");
+    const { noteOperatorFailure, noteOperatorSuccess, operatorLocked, unlockOperator } = await import(
+      "./operator-gate.server"
+    );
+    assertSameSiteRequest();
+    if (operatorLocked()) throw new Error("Too many attempts. Wait ten minutes and try again.");
+    if (!unlockOperator(data)) {
+      noteOperatorFailure();
+      throw new Error("That passphrase is wrong.");
+    }
+    noteOperatorSuccess();
     return { ok: true as const };
   });
 
@@ -235,9 +244,11 @@ export const getBoard = createServerFn({ method: "GET" }).handler(async () => {
   }
 });
 
-export const listCaptures = createServerFn({ method: "GET" }).handler(async () => {
-  return listRows();
-});
+export const listCaptures = createServerFn({ method: "GET" })
+  .middleware([operatorMiddleware])
+  .handler(async () => {
+    return listRows();
+  });
 
 export const getCapture = createServerFn({ method: "GET" })
   .validator((slug: string) => (typeof slug === "string" ? slug : ""))
@@ -602,9 +613,13 @@ export const removeCapture = createServerFn({ method: "POST" })
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const remote = await import("./blob-board.server");
       await remote.remoteRemove(slug);
-      return { ok: true as const };
     }
-    const sql = await requireOperator(context.userId);
-    await sql`delete from captures where slug = ${slug}`;
+    try {
+      const sql = await getSql();
+      await sql`delete from captures where slug = ${slug}`;
+    } catch (error) {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) throw error;
+      console.error(error);
+    }
     return { ok: true as const };
   });

@@ -1,4 +1,5 @@
-import { del, get, issueSignedToken, presignUrl, put } from "@vercel/blob";
+import { del, get, issueSignedToken, list, presignUrl, put } from "@vercel/blob";
+import { isOwnedPath, orphanPathnames, pathsForCapture, stalePaths } from "@/lib/blob-purge";
 
 export type RemoteCapture = {
   slug: string;
@@ -87,12 +88,39 @@ async function writeBoard(board: RemoteBoard) {
   });
 }
 
-function dropPaths(paths: Array<string | undefined>) {
-  const stale = paths.filter((path): path is string => Boolean(path));
-  if (!stale.length) return;
-  void del(stale).catch((error: unknown) => {
-    console.error(error);
-  });
+async function forget(paths: Array<string | undefined | null>, keptChange: boolean) {
+  const unique = [...new Set(paths.filter(isOwnedPath))];
+  const failed: string[] = [];
+  for (const path of unique) {
+    try {
+      await del(path);
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
+      if (message.includes("not found") || message.includes("does not exist") || message.includes("404")) continue;
+      console.error(error);
+      failed.push(path);
+    }
+  }
+  if (failed.length) {
+    throw new Error(
+      keptChange
+        ? "The new panorama is saved, but the previous file is still in storage. Remove the challenge if it must be wiped."
+        : "The panorama is still in storage, so the challenge was kept. Try removing it again.",
+    );
+  }
+}
+
+async function sweep(board: RemoteBoard) {
+  const keep = board.captures.flatMap((capture) => [capture.imagePath, capture.thumbPath]);
+  const blobs: Array<{ pathname: string; uploadedAt: Date }> = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: "captures/", cursor, limit: 1000 });
+    blobs.push(...page.blobs.map((blob) => ({ pathname: blob.pathname, uploadedAt: blob.uploadedAt })));
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  const stale = orphanPathnames(blobs, keep.filter(isOwnedPath), Date.now());
+  if (stale.length) await forget(stale, true);
 }
 
 export async function remoteBoard() {
@@ -100,7 +128,7 @@ export async function remoteBoard() {
 }
 
 export async function remoteReadUrl(pathname: string) {
-  const validUntil = Date.now() + 60 * 60 * 1000;
+  const validUntil = Date.now() + 15 * 60 * 1000;
   const token = await issueSignedToken({
     pathname,
     operations: ["get"],
@@ -159,7 +187,15 @@ export async function remoteUpdate(capture: RemoteCapture, replaceImage: boolean
   }
   board.captures[index] = next;
   await writeBoard(board);
-  dropPaths([current.imagePath, current.thumbPath].filter((path) => path && path !== next.imagePath && path !== next.thumbPath));
+  const nextPaths = capture.imagePath
+    ? [capture.imagePath, capture.thumbPath]
+    : [`captures/${capture.slug}/full`, `captures/${capture.slug}/thumb`];
+  await forget(stalePaths(pathsForCapture(current), nextPaths), true);
+  try {
+    await sweep(board);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 export async function remoteSetVisible(slug: string, visible: boolean) {
@@ -181,15 +217,21 @@ export async function remoteSetSample(showSample: boolean) {
 export async function remoteRemove(slug: string) {
   const board = await readBoard();
   const gone = board.captures.find((item) => item.slug === slug);
+  if (!gone) return;
+  await forget(pathsForCapture(gone), false);
   board.captures = board.captures.filter((item) => item.slug !== slug);
   await writeBoard(board);
-  if (gone) dropPaths([gone.imagePath, gone.thumbPath]);
+  try {
+    await sweep(board);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 export async function remoteImage(slug: string, full: boolean) {
   const board = await readBoard();
   const capture = board.captures.find((item) => item.slug === slug);
-  if (!capture) return null;
+  if (!capture || capture.visible === false) return null;
   const path = full ? capture.imagePath : capture.thumbPath;
   const inline = full ? capture.image : capture.thumb;
   const mime = full ? capture.mime || "image/jpeg" : "image/jpeg";

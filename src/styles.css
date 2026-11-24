@@ -904,8 +904,12 @@
   flex: 1 1 140px;
 }
 
-.sp-admin-card .sp-drop {
-  min-height: 44px;
+.sp-storage-note {
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: none;
 }
 
 .pnlm-container {

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
-const MAX_PANORAMA_BYTES = 100 * 1024 * 1024;
+const SAFE_UPLOAD = /^captures\/[A-Za-z0-9][A-Za-z0-9._/-]{0,180}$/;
 
 export const Route = createFileRoute("/api/blob")({
   server: {
@@ -10,7 +10,13 @@ export const Route = createFileRoute("/api/blob")({
         if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.OPERATOR_PASSWORD) {
           return new Response("Direct upload is off.", { status: 404 });
         }
+        const { assertSameSiteRequest } = await import("@/lib/auth/isolation.server");
         const { operatorCookieOk } = await import("@/lib/operator-gate.server");
+        try {
+          assertSameSiteRequest();
+        } catch {
+          return new Response("Forbidden", { status: 403 });
+        }
         if (!operatorCookieOk()) {
           return new Response("Operator sign-in required.", { status: 401 });
         }
@@ -25,23 +31,23 @@ export const Route = createFileRoute("/api/blob")({
             body,
             request,
             onBeforeGenerateToken: async (pathname) => {
-              if (!pathname.startsWith("captures/") || pathname.includes("..")) {
+              if (!SAFE_UPLOAD.test(pathname) || pathname.includes("..")) {
                 throw new Error("That upload path is not allowed.");
               }
               return {
                 allowedContentTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
-                maximumSizeInBytes: MAX_PANORAMA_BYTES,
+                maximumSizeInBytes: 100 * 1024 * 1024,
                 addRandomSuffix: true,
                 allowOverwrite: false,
+                validUntil: Date.now() + 15 * 60 * 1000,
               };
             },
           });
           return Response.json(jsonResponse);
         } catch (error) {
-          return Response.json(
-            { error: error instanceof Error ? error.message : "Upload failed." },
-            { status: 400 },
-          );
+          const message = error instanceof Error ? error.message : "Upload failed.";
+          const safe = /token|secret|password|blob_read/i.test(message) ? "Upload failed." : message;
+          return Response.json({ error: safe }, { status: 400 });
         }
       },
     },

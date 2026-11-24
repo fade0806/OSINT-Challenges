@@ -1,64 +1,75 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSql } from "@/lib/db";
 
+const PRIVATE_MEDIA = {
+  "cache-control": "private, no-store",
+  "referrer-policy": "no-referrer",
+  "x-content-type-options": "nosniff",
+};
+
+function missing() {
+  return new Response("Not found", { status: 404, headers: PRIVATE_MEDIA });
+}
+
 export const Route = createFileRoute("/api/media/$slug")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         const url = new URL(request.url);
         const slug = decodeURIComponent(url.pathname.split("/").filter(Boolean).pop() ?? "");
-        if (!/^[a-z0-9-]{1,80}$/.test(slug)) {
-          return new Response("Not found", { status: 404 });
-        }
+        if (!/^[a-z0-9-]{1,80}$/.test(slug)) return missing();
         const full = url.searchParams.get("kind") === "full";
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           try {
             const remote = await import("@/lib/blob-board.server");
-            if (full) {
-              const board = await remote.remoteBoard();
-              const capture = board.captures.find((item) => item.slug === slug);
-              if (!capture || capture.visible === false) return new Response("Not found", { status: 404 });
-              if (capture.imagePath) {
-                const signed = await remote.remoteReadUrl(capture.imagePath);
-                return Response.redirect(signed, 302);
-              }
-            }
-            const media = await remote.remoteImage(slug, full);
-            if (media) {
-              return new Response(media.body, {
-                headers: {
-                  "content-type": media.mime || "image/jpeg",
-                  "cache-control": "public, max-age=86400",
-                },
+            const board = await remote.remoteBoard();
+            const capture = board.captures.find((item) => item.slug === slug);
+            if (!capture || capture.visible === false) return missing();
+            if (full && capture.imagePath) {
+              const signed = await remote.remoteReadUrl(capture.imagePath);
+              if (!signed.startsWith("https://")) return missing();
+              return new Response(null, {
+                status: 302,
+                headers: { ...PRIVATE_MEDIA, location: signed },
               });
             }
+            const media = await remote.remoteImage(slug, full);
+            if (!media) return missing();
+            const mime = media.mime?.startsWith("image/") ? media.mime : "application/octet-stream";
+            return new Response(media.body, {
+              headers: {
+                ...PRIVATE_MEDIA,
+                "content-type": mime,
+                "content-disposition": "inline",
+              },
+            });
           } catch (error) {
             console.error(error);
+            return missing();
           }
         }
         try {
           const sql = await getSql();
           const rows = full
             ? await sql<{ data: string; mime: string }>`
-                select image_b64 as data, mime from captures where slug = ${slug}
+                select image_b64 as data, mime from captures where slug = ${slug} and visible = true
               `
             : await sql<{ data: string; mime: string }>`
-                select thumb_b64 as data, mime from captures where slug = ${slug}
+                select thumb_b64 as data, mime from captures where slug = ${slug} and visible = true
               `;
           const row = rows[0];
-          if (row) {
-            const bytes = Uint8Array.from(Buffer.from(row.data, "base64"));
-            return new Response(bytes, {
-              headers: {
-                "content-type": row.mime || "image/jpeg",
-                "cache-control": "public, max-age=86400",
-              },
-            });
-          }
+          if (!row?.data || !row.mime?.startsWith("image/")) return missing();
+          const bytes = Uint8Array.from(Buffer.from(row.data, "base64"));
+          return new Response(bytes, {
+            headers: {
+              ...PRIVATE_MEDIA,
+              "content-type": row.mime || "image/jpeg",
+            },
+          });
         } catch (error) {
           console.error(error);
+          return missing();
         }
-        return new Response("Not found", { status: 404 });
       },
     },
   },

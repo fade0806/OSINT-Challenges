@@ -624,6 +624,9 @@ function CaptureEditor({
           Remove
         </button>
       </div>
+      <p className="sp-storage-note">
+        Remove deletes this challenge and its panorama from storage. Replacing a panorama deletes the previous file too.
+      </p>
     </form>
   );
 }
